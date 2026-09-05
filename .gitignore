@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+
+# Env / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Data / models / uploads (large or user-generated — never commit)
+uploads/
+*.mp4
+*.avi
+*.mov
+*.pt
+*.onnx
+data_science/models/*.pkl
+data_science/models/*.joblib
+
+# DB
+*.sqlite3
+*.db
+pgdata/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Scratch
+scratch/

@@ -1,0 +1,21 @@
+# --- Web framework ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.20
+
+# --- Settings / validation ---
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# --- Database ---
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+alembic==1.13.2
+
+# --- Computer Vision / Media ---
+opencv-python-headless==5.0.0.93
+ultralytics==8.4.140
+
+# --- Testing ---
+pytest==8.3.3
+httpx==0.27.2

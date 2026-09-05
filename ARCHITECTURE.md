@@ -1,0 +1,175 @@
+# ARCHITECTURE.md
+## AI Smart Traffic Intelligence Platform
+
+Status: **Design phase (Phase 1)**. Nothing described here is implemented yet unless PROJECT_STATUS.md says otherwise. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+
+---
+
+## 1. System Overview
+
+The platform turns uploaded traffic-camera video into structured traffic intelligence: counts, lane-level density, congestion assessment, short-horizon prediction, and two clearly-labeled decision-support simulations (signal timing, emergency corridor). It is explicitly **not** a "YOLO demo" — the value is the pipeline that turns detections into explainable metrics and the product layer around it.
+
+```
+                    ┌───────────────────────┐
+                    │      React Frontend    │
+                    │  Dashboard / Analytics │
+                    └───────────┬───────────┘
+                                │ REST (JSON)
+                    ┌───────────▼───────────┐
+                    │     FastAPI Backend    │
+                    └───────────┬───────────┘
+                                │
+             ┌──────────────────┼──────────────────┐
+             │                  │                  │
+             ▼                  ▼                  ▼
+       Video Service      Analytics Engine     ML Engine
+             │                  │                  │
+             ▼                  ▼                  ▼
+       OpenCV + YOLO       Traffic Metrics      Prediction
+             │
+             ▼
+        Object Tracker (ByteTrack/BoT-SORT)
+             │
+             ▼
+       Lane / Flow Engine
+             │
+             └──────────────┬────────────────────┘
+                            ▼
+                     PostgreSQL Database
+```
+
+Supporting modules (not in the hot path): signal optimization, emergency corridor simulation, reporting, authentication, system configuration.
+
+## 2. Design Principles
+
+- **Modular over monolithic.** Each pipeline stage (`VideoSource`, `Detector`, `Tracker`, `VehicleCounter`, `LaneAnalyzer`, `TrafficMetricsEngine`) is its own class behind a small interface, so the tracker or detector can be swapped without touching business logic.
+- **Config over hard-coding.** Lane polygons, counting lines, confidence thresholds, and density thresholds live in config (DB or YAML), never inline in code.
+- **Honesty over completeness-theater.** Anything simulated is labeled "Simulation" in both the API response and the UI. Anything not yet measured is reported as "Not yet measured," never invented.
+- **Source video stays swappable.** `VideoSource` abstracts "where frames come from" so upload → webcam → RTSP is a new adapter, not a rewrite.
+
+## 3. Computer Vision Pipeline
+
+```
+Traffic Video → Frame Extraction → YOLO Detection → Object Tracking
+   → Vehicle Classification → Lane Assignment → Line/Zone Crossing
+   → Traffic Metrics → Database → Analytics Dashboard
+```
+
+Module responsibilities (`backend/app/services/cv/`):
+
+| Module | Responsibility |
+|---|---|
+| `video_source.py` | Yields frames from an uploaded file today; webcam/RTSP adapters later, same interface. |
+| `detector.py` | Wraps Ultralytics YOLO. Input: frame. Output: list of `(bbox, class, confidence)`. Confidence/class thresholds come from config. |
+| `tracker.py` | Wraps ByteTrack/BoT-SORT behind a `Tracker` interface (`update(detections) -> tracked_objects`) so the algorithm is replaceable. Assigns/persists a track ID per vehicle across frames. |
+| `vehicle_counter.py` | Counts a track only when its trajectory crosses a configured line/zone — not per-frame — so one vehicle is counted once. |
+| `lane_analyzer.py` | Maps a tracked point to a configured lane polygon; computes per-lane count, density, queue length, estimated speed. |
+| `traffic_metrics_engine.py` | Aggregates lane-level output into flow rate, occupancy, directional distribution, and the 0–100 density/congestion score. |
+
+Per-detection fields persisted: track ID, class, confidence, bounding box, frame number, timestamp, lane, direction.
+
+## 4. Density & Congestion Scoring
+
+Density score (0–100) is a configurable weighted combination of vehicle count, lane occupancy, queue length, average estimated speed, and flow rate. Bands are project-defined assumptions, not a traffic-engineering standard, and will be documented as such wherever they appear:
+
+```
+0–25    LOW
+26–50   MODERATE
+51–75   HIGH
+76–100  SEVERE
+```
+
+Congestion output is explainable, not just a number — it returns the score, severity, affected lane/direction, timestamp, and a short list of contributing reasons (e.g., "queue length increasing," "reduced estimated speed").
+
+## 5. Data Science / ML Pipeline
+
+Research code (`data_science/notebooks/`) and production inference code (`backend/app/services/ml/`) are kept separate on purpose — notebooks are for exploration, the service module only loads a serialized, evaluated model.
+
+```
+Raw Traffic Data → Cleaning → EDA → Feature Engineering
+  → Train/Val/Test Split → Baseline Models → Model Comparison
+  → Evaluation → Model Selection → Serialization → Production Inference
+```
+
+- **Targets:** short-horizon (5–15 min) vehicle volume, congestion, and/or queue length — final target chosen once real data exists to support it.
+- **Candidate models:** linear regression and a tree ensemble (Random Forest / XGBoost) as baselines; a time-series-appropriate model if the baseline underperforms. No model is chosen before there's a reason to prefer it.
+- **Evaluation is never invented.** Metrics reported in docs/README always come from an actual eval run logged in PROJECT_STATUS.md.
+
+## 6. Decision-Support Simulations (explicitly not real control systems)
+
+- **Signal optimization** (`services/simulation/`): given per-direction vehicle counts, computes a recommended green-time allocation and compares it to current timing (expected queue/wait-time change). Framed everywhere as a simulation/recommendation, never as live signal control.
+- **Emergency corridor simulation**: given an emergency vehicle's origin/destination and current traffic state, proposes a route, affected intersections, and simulated signal-priority changes with an estimated travel time. Same labeling rule applies.
+- **Emergency vehicle detection**: architecture exists from the start (a pluggable detector module), but if the base YOLO model can't reliably distinguish ambulance/fire truck/police from generic vehicle classes, that limitation is documented rather than faked, and the module is built to accept a future fine-tuned model.
+
+## 7. Backend API (FastAPI)
+
+Representative surface (full contract lives in `docs/` once implemented):
+
+```
+POST /api/v1/videos/upload
+GET  /api/v1/videos
+GET  /api/v1/videos/{id}
+POST /api/v1/analysis/start
+GET  /api/v1/analysis/{id}
+GET  /api/v1/analysis/{id}/metrics
+GET  /api/v1/analysis/{id}/detections
+GET  /api/v1/analysis/{id}/predictions
+GET  /api/v1/analysis/{id}/signal-recommendation
+GET  /api/v1/analytics/summary
+GET  /api/v1/analytics/history
+POST /api/v1/simulation/signal
+POST /api/v1/emergency/simulation
+```
+
+All request/response shapes are Pydantic models. Errors are centrally handled and return a consistent shape — no internal stack traces ever reach the client. Structured logging (not print statements) throughout.
+
+## 8. Database Schema (PostgreSQL)
+
+Initial table design — will evolve via migrations as real requirements surface:
+
+**users** — id, email (unique), hashed_password, role, created_at
+
+**videos** — id, uploaded_by (fk users), original_filename, storage_path, duration_seconds, fps, resolution, uploaded_at, status (uploaded/processing/processed/failed)
+
+**analysis_sessions** — id, video_id (fk), started_at, completed_at, status, total_vehicles, peak_traffic, avg_density, max_congestion, config_snapshot (jsonb — the thresholds/lanes used for this run, for reproducibility)
+
+**intersections** — id, name, latitude, longitude, description
+
+**lanes** — id, intersection_id (fk, nullable for single-lane video sources), video_id (fk), name, direction, polygon (jsonb), counting_line (jsonb)
+
+**traffic_metrics** — id, analysis_session_id (fk), lane_id (fk, nullable), timestamp, vehicle_count, density_score, congestion_score, flow_rate, avg_speed_estimate, queue_length
+
+**detections** — id, analysis_session_id (fk), track_id, frame_number, timestamp, class, confidence, bbox (jsonb), lane_id (fk, nullable), direction — *not* retained indefinitely (see retention note below)
+
+**predictions** — id, analysis_session_id (fk), generated_at, horizon_minutes, target (volume/congestion/queue), predicted_value, model_version
+
+**signal_recommendations** — id, analysis_session_id (fk), generated_at, current_timing (jsonb), recommended_timing (jsonb), expected_queue_change, expected_wait_change
+
+**emergency_events** — id, analysis_session_id (fk), detected_at, vehicle_type, origin, destination, recommended_route (jsonb), status (simulation-only field)
+
+Indexes on all foreign keys and on `(analysis_session_id, timestamp)` for the time-series tables. Raw per-frame `detections` rows are the highest-volume table by far — retention policy (e.g., aggregate-then-purge after N days) is a config value, not something we store forever by default (see Section 26 in the source master prompt / SECURITY.md).
+
+## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
+
+Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimization, Emergency Simulation, History, Settings, System Information.
+
+- `src/api/` — typed API client (one function per backend endpoint, no ad-hoc fetches scattered through components).
+- `src/pages/` — one file per page above, composed from `src/components/`.
+- `src/components/` — reusable chart wrappers (Recharts/Plotly), KPI cards, the video-annotation overlay, lane-editor widget.
+- Real data by default; any demo/mocked view is explicitly labeled "Demo data" in the UI, per the no-fake-results rule.
+
+## 10. Security Model (see SECURITY.md for the living checklist)
+
+- Upload pipeline: extension + MIME validation, size limits, filename sanitization, path-traversal protection, isolated upload directory, uploaded files never executed, temp-file cleanup.
+- Standard web risks in scope from day one: SQL injection (parameterized queries via SQLAlchemy), XSS (React escapes by default, but API responses are still sanitized/validated), CSRF where cookies are used, CORS locked to known origins (not `*`).
+- Secrets: `.env` only, never committed, never sent to the frontend; `.env.example` documents the shape with placeholder values only.
+- Auth: standard hashed-password + token-based auth; authorization checked per-endpoint, not just per-page in the frontend.
+- Logging never includes passwords, tokens, or full request bodies with credentials.
+
+## 11. Configuration Strategy
+
+Runtime-tunable values (confidence thresholds, frame-skip rate, processing FPS, density weights, lane polygons, counting lines) live in the database or a config table/YAML — not scattered as magic numbers through business logic — so tuning doesn't require a code change.
+
+## 12. Deployment
+
+Docker Compose brings up: backend (FastAPI), frontend (static build or dev server), PostgreSQL. Dockerfiles and compose file are Phase 18 work — not created yet; see PROJECT_STATUS.md.
