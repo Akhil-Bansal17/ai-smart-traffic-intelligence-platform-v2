@@ -128,7 +128,29 @@ def track_video_shortcut(
     video_id: str,
     db: Session = Depends(get_db),
 ):
-    from app.api.v1.tracking import track_video as run_track
     from app.api.v1.detection import get_detector
     from app.api.v1.tracking import get_tracker
+    from app.api.v1.tracking import track_video as run_track
     return run_track(video_id=video_id, db=db, detector=get_detector(), tracker=get_tracker())
+
+
+@router.post(
+    "/{video_id}/count",
+    summary="Run vehicle counting on video by ID",
+    description="Shortcut for /api/v1/counting/videos/{video_id}",
+)
+def count_video_shortcut(
+    video_id: str,
+    db: Session = Depends(get_db),
+):
+    from app.api.v1.counting import count_video as run_count
+    from app.api.v1.counting import get_counter
+    from app.api.v1.detection import get_detector
+    from app.api.v1.tracking import get_tracker
+    return run_count(
+        video_id=video_id,
+        db=db,
+        detector=get_detector(),
+        tracker=get_tracker(),
+        counter=get_counter(),
+    )

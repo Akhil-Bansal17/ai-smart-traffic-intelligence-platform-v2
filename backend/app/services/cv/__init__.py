@@ -15,6 +15,15 @@ from app.services.cv.tracker import (
     TrackState,
     VideoTrackingOutput,
 )
+from app.services.cv.vehicle_counter import (
+    CountingLine,
+    CrossingEvent,
+    FrameCountingResult,
+    LineCrossingCounter,
+    Point2D,
+    VehicleCounter,
+    VideoCountingOutput,
+)
 from app.services.cv.video_source import VideoMetadata, VideoSource
 from app.services.cv.video_validator import (
     get_secure_storage_path,
@@ -45,4 +54,11 @@ __all__ = [
     "TrackedObject",
     "FrameTrackingResult",
     "VideoTrackingOutput",
+    "VehicleCounter",
+    "LineCrossingCounter",
+    "CountingLine",
+    "Point2D",
+    "CrossingEvent",
+    "FrameCountingResult",
+    "VideoCountingOutput",
 ]

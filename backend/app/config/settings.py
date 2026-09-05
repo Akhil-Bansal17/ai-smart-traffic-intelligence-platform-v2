@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     tracker_max_lost_frames: int = 15
     tracker_min_hits: int = 1
 
+    # --- Vehicle Counting (used starting Phase 7+) ---
+    counting_line_p1_x: float = 0.0
+    counting_line_p1_y: float = 0.5
+    counting_line_p2_x: float = 1.0
+    counting_line_p2_y: float = 0.5
+    counting_min_movement_px: float = 2.0
+
     @property
     def cors_origins(self) -> list[str]:
         """allowed_origins as a parsed list for the CORS middleware."""

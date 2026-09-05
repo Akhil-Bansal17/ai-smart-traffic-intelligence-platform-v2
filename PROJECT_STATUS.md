@@ -15,9 +15,10 @@ Last updated: 2026-09-05
 **Phase 4 — Video Ingestion: COMPLETE (verified live)**
 **Phase 5 — YOLO Detection: COMPLETE (verified live)**
 **Phase 6 — Object Tracking: COMPLETE (verified live — see Technical Decisions Log)**
-**Phase 7 — Vehicle Counting: NOT STARTED (next task — see `prompts/07-vehicle-counting.md`)**
+**Phase 7 — Vehicle Counting: COMPLETE (verified live — see Technical Decisions Log)**
+**Phase 8 — Lane Analysis: NOT STARTED (next task — see `prompts/08-lane-analysis.md`)**
 
-> **Workflow note:** Phases 1–6 are independently verified, fully operational, and tested against live services, genuine YOLOv8n inference, and ByteTrack multi-object tracking.
+> **Workflow note:** Phases 1–7 are independently verified, fully operational, and tested against live services, genuine YOLOv8n inference, ByteTrack multi-object tracking, and mathematical line-crossing deduplicated counting.
 
 ## Completed Work
 
@@ -49,9 +50,16 @@ Last updated: 2026-09-05
   - Sequential, persistent `track_id` assignment decoupled from detection class labels.
   - Structured tracking dataclasses and Pydantic schemas (`backend/app/schemas/tracking.py`): `TrackedItem`, `FrameTrackingResultSchema`, `VideoTrackingResponse`, `TrackingRequest`, `TrackerInfoResponse`.
   - Versioned tracking API endpoints: `POST /api/v1/tracking/videos/{video_id}`, `POST /api/v1/videos/{video_id}/track`, and `GET /api/v1/tracking/info`.
-  - Frontend tracking UI: `VideoAnalysisPage.tsx` updated with tracking mode toggle, tracking parameters (IoU threshold, max frames), visual annotated frame preview with persistent Track ID tags (e.g. `ID: #1 bus 0.87`), and chronological Track ID continuity timeline inspector.
-  - Comprehensive unit and integration test suite: `backend/tests/test_tracker.py` covering all 14 mandated test requirements (43 passed total, 0 failures).
-  - Real live tracking verification script: `scripts/verify_phase6_tracking.py` executed live, demonstrating 100% Track ID continuity across all sampled video frames (`Frame 0 -> Track 1 ... Frame 18 -> Track 1`).
+- **Vehicle counting pipeline implemented and verified live (Phase 7):**
+  - Modular `VehicleCounter` protocol and `LineCrossingCounter` service (`backend/app/services/cv/vehicle_counter.py`) implementing mathematical 2D signed cross-product transition testing with trajectory segment intersection.
+  - Strict track-ID deduplication: persistent `track_id`s are counted exactly once for their entire lifecycle with zero per-frame or detection duplicate counts.
+  - Directional flow classification: `inbound` (Side A $\to$ Side B) and `outbound` (Side B $\to$ Side A).
+  - Configurable virtual tripwire geometry (`CountingLine`, `Point2D`) with noise jitter filtering.
+  - Structured counting Pydantic schemas (`backend/app/schemas/counting.py`): `Point2DSchema`, `CountingLineSchema`, `CrossingEventSchema`, `FrameCountingResultSchema`, `VideoCountingResponse`, `CountingRequest`, `CountingInfoResponse`.
+  - Versioned counting API endpoints: `POST /api/v1/counting/videos/{video_id}`, `POST /api/v1/videos/{video_id}/count`, and `GET /api/v1/counting/info`.
+  - Frontend counting UI: `VideoAnalysisPage.tsx` updated with counting mode toggle, tripwire Y-level slider, KPI cards (Total Count, Cars, Trucks, Buses, Directional Flow), visual annotated preview with glowing tripwire and crossing badges, and chronological crossing events audit log.
+  - Comprehensive unit and integration test suite: `backend/tests/test_counter.py` covering all 16 mandated scenarios (59 passed total, 0 failures).
+  - Real live verification script: `scripts/verify_phase7_counting.py` executed live with moving bus crossing virtual line (`Side A` frames 0-10 $\to$ `Side B` frame 12, direction `INBOUND`, counted once, zero duplicates).
 
 ## Unfinished Work (by phase, per ARCHITECTURE.md / the master prompt)
 
@@ -63,7 +71,7 @@ Last updated: 2026-09-05
 | 4 | Video Ingestion | ✅ Complete (verified) |
 | 5 | YOLO Detection | ✅ Complete (verified) |
 | 6 | Object Tracking | ✅ Complete (verified live) |
-| 7 | Vehicle Counting | ⬜ Not started |
+| 7 | Vehicle Counting | ✅ Complete (verified live) |
 | 8 | Lane Analysis | ⬜ Not started |
 | 9 | Traffic Analytics | ⬜ Not started |
 | 10 | Database Integration | ⬜ Not started |
@@ -88,30 +96,29 @@ None.
 
 ## Technical Decisions Log
 
-- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–6 are verified and operational.
+- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–7 are verified and operational.
 - **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn/XGBoost for the DS pipeline.
-- **Tracker Design & Architecture:** `ByteTrackVehicleTracker` implements linear Kalman motion prediction combined with greedy bipartite IoU spatial association. It operates strictly on `DetectionResult` inputs from Phase 5 (never invoking YOLO directly).
-- **Track Lifecycle State Machine:** Transitions across `NEW` (initial detection) -> `ACTIVE` (confirmed match) -> `LOST` (brief occlusion, up to 15 frames) -> `TERMINATED` (retired identity).
-- **Database Persistence Decision (Option A):** Per `ARCHITECTURE.md` §8 and Phase 6 prompt instructions, raw tracking outputs are returned directly via API responses; database persistence into `detections` / `analysis_sessions` is deferred to Phase 9/10 when durable traffic analytics are introduced.
-- **Resource Bounding & Security:** Bounded execution via `max_frames` (default: 50, maximum: 300) and `PROCESSING_FPS` sampling (5 FPS). Server filesystem paths are strictly isolated and never leaked in API schemas.
+- **Counting Engine Architecture:** `LineCrossingCounter` consumes `TrackedObject` outputs from `ByteTrackVehicleTracker` (never invoking YOLO directly).
+- **Mathematical Crossing Semantics:** Signed 2D cross-product transition test over configured virtual line segment $P_1(x_1, y_1) \to P_2(x_2, y_2)$ with directional classification (`inbound`/`outbound`) and stationary noise rejection threshold.
+- **Strict Deduplication:** Maintains `_counted_track_ids: Set[int]` ensuring each vehicle is counted at most once during its lifespan.
+- **Database Persistence Decision (Option A):** In alignment with `ARCHITECTURE.md` §8 and Phase 5/6 precedent, durable persistence of counting metrics is deferred to Phase 9/10 when sessions and lane analytics exist.
+- **Resource Bounding & Security:** Processing is bounded by `max_frames` and `PROCESSING_FPS`. Server filesystem paths are strictly isolated and never exposed in responses.
 
 ## Environment Information
 
 - Backend: Python 3.14.7, FastAPI 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, psycopg2-binary 2.9.12, pytest 9.1.1.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
 - Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations.
-- `.env` configured locally with `DATABASE_URL=sqlite:///./traffic_platform.db`, `UPLOAD_DIR=./uploads`, `MAX_UPLOAD_SIZE_MB=500`, `ALLOWED_VIDEO_EXTENSIONS=.mp4,.avi,.mov`, `PROCESSING_FPS=5`, `YOLO_MODEL_PATH=./data_science/models/yolov8n.pt`, `DEFAULT_CONFIDENCE_THRESHOLD=0.4`, `YOLO_DEVICE=cpu`, `YOLO_IMGSZ=640`, `TRACKER_IOU_THRESHOLD=0.3`, `TRACKER_MAX_LOST_FRAMES=15`, `TRACKER_MIN_HITS=1`.
 
 ## Latest Successful Tests
 
-- **Backend Test Suite:** `pytest backend/tests` → **43 passed, 0 failures** (2026-09-05), covering Phase 2 (6), Phase 4 ingestion (12), Phase 5 detection (13), and Phase 6 tracking (12).
-- **Live Real Object Tracking Evidence:** Verified live with `scripts/verify_phase6_tracking.py`:
-  - Pipeline init: `44.5ms` (YOLOv8n + ByteTrack-Kalman-IoU on CPU).
-  - 10 video frames evaluated at 5 FPS: persistent `Track #1` assigned and maintained across 100% of frames (`Frame 0 -> Track 1 ... Frame 18 -> Track 1`).
-  - Total unique tracks: 1.
-  - Visual base64 tracking preview generated with Track IDs and trajectory trail.
-- **Frontend Typecheck & Build:** `npm run typecheck` (0 errors), `npm run build` (1609 modules transformed, success in 5.34s).
+- **Backend Test Suite:** `pytest backend/tests` → **59 passed, 0 failures** (2026-09-05), covering Phase 2 (6), Phase 4 ingestion (12), Phase 5 detection (13), Phase 6 tracking (12), and Phase 7 counting (16).
+- **Live Real Vehicle Counting Evidence:** Verified live with `scripts/verify_phase7_counting.py`:
+  - Pipeline init: `26.5ms` (YOLOv8n + ByteTrack + LineCrossingCounter on CPU).
+  - 10 video frames evaluated at 5 FPS: persistent `Track #1` (bus) transitioned from `Side A` (frames 0-10) to `Side B` (frame 12), triggering exact count of 1 with direction `INBOUND` and 0 duplicate counts across all frames.
+  - Visual base64 counting preview generated with glowing virtual tripwire and count HUD.
+- **Frontend Typecheck & Build:** `npm run typecheck` (0 errors), `npm run build` (1610 modules transformed, success in 2.55s).
 
 ## Next Task
 
-**Phase 7 — Vehicle Counting.** Implement line and zone crossing algorithms (`backend/app/services/cv/vehicle_counter.py`), directional crossing logic, counting persistent track IDs once per trajectory, and counting API endpoints.
+**Phase 8 — Lane Analysis.** Implement polygon lane region-of-interest (ROI) mapping (`backend/app/services/cv/lane_analyzer.py`), vehicle-to-lane spatial containment, per-lane vehicle counts, density estimation, and lane analysis API endpoints.

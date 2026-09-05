@@ -7,9 +7,11 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { uploadVideo, listVideos } from '@/api/videos';
 import { detectVideo } from '@/api/detection';
 import { trackVideo } from '@/api/tracking';
+import { countVideo } from '@/api/counting';
 import { VideoMetadata } from '@/types/video';
 import { VideoDetectionResponse } from '@/types/detection';
 import { VideoTrackingResponse } from '@/types/tracking';
+import { VideoCountingResponse } from '@/types/counting';
 import { ApiError } from '@/types/api';
 import {
   Upload,
@@ -18,7 +20,6 @@ import {
   Clock,
   HardDrive,
   RefreshCw,
-  Play,
   Crosshair,
   Car,
   Truck,
@@ -28,9 +29,14 @@ import {
   Info,
   Route,
   Activity,
+  Calculator,
+  ArrowRightLeft,
+  Hash,
+  ArrowDownRight,
+  ArrowUpRight,
 } from 'lucide-react';
 
-type AnalysisMode = 'detection' | 'tracking';
+type AnalysisMode = 'counting' | 'tracking' | 'detection';
 
 export function VideoAnalysisPage() {
   const [isUploading, setIsUploading] = useState(false);
@@ -40,23 +46,29 @@ export function VideoAnalysisPage() {
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Mode state: Detection (Phase 5) vs Tracking (Phase 6)
-  const [activeMode, setActiveMode] = useState<AnalysisMode>('tracking');
+  // Active Mode: Counting (Phase 7) | Tracking (Phase 6) | Detection (Phase 5)
+  const [activeMode, setActiveMode] = useState<AnalysisMode>('counting');
 
-  // Detection states
+  // Detection states (Phase 5)
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectionError, setDetectionError] = useState<ApiError | null>(null);
   const [detectionResult, setDetectionResult] = useState<VideoDetectionResponse | null>(null);
 
-  // Tracking states
+  // Tracking states (Phase 6)
   const [isTracking, setIsTracking] = useState(false);
   const [trackingError, setTrackingError] = useState<ApiError | null>(null);
   const [trackingResult, setTrackingResult] = useState<VideoTrackingResponse | null>(null);
+
+  // Counting states (Phase 7)
+  const [isCounting, setIsCounting] = useState(false);
+  const [countingError, setCountingError] = useState<ApiError | null>(null);
+  const [countingResult, setCountingResult] = useState<VideoCountingResponse | null>(null);
 
   // Parameters
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.35);
   const [maxFrames, setMaxFrames] = useState<number>(50);
   const [iouThreshold, setIouThreshold] = useState<number>(0.30);
+  const [linePositionRatio, setLinePositionRatio] = useState<number>(0.50);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,6 +100,8 @@ export function VideoAnalysisPage() {
     setDetectionError(null);
     setTrackingResult(null);
     setTrackingError(null);
+    setCountingResult(null);
+    setCountingError(null);
 
     try {
       const result = await uploadVideo(file);
@@ -115,27 +129,36 @@ export function VideoAnalysisPage() {
     }
   };
 
-  const handleRunDetection = async (videoId: string) => {
+  const handleRunCounting = async (videoId: string) => {
     if (!videoId) return;
 
-    setIsDetecting(true);
-    setDetectionError(null);
+    setIsCounting(true);
+    setCountingError(null);
 
     try {
-      const result = await detectVideo(videoId, {
+      const result = await countVideo(videoId, {
         confidence_threshold: confidenceThreshold,
         max_frames: maxFrames,
+        iou_threshold: iouThreshold,
+        counting_line: {
+          p1: { x: 0.0, y: linePositionRatio },
+          p2: { x: 1.0, y: linePositionRatio },
+          label: 'main_tripwire',
+          direction_a_to_b: 'inbound',
+          direction_b_to_a: 'outbound',
+          min_movement_px: 2.0,
+        },
       });
-      setDetectionResult(result);
-      setActiveMode('detection');
+      setCountingResult(result);
+      setActiveMode('counting');
     } catch (err) {
       if (err instanceof ApiError) {
-        setDetectionError(err);
+        setCountingError(err);
       } else {
-        setDetectionError(new ApiError('Detection inference failed', 500));
+        setCountingError(new ApiError('Vehicle counting inference failed', 500));
       }
     } finally {
-      setIsDetecting(false);
+      setIsCounting(false);
     }
   };
 
@@ -164,24 +187,50 @@ export function VideoAnalysisPage() {
     }
   };
 
+  const handleRunDetection = async (videoId: string) => {
+    if (!videoId) return;
+
+    setIsDetecting(true);
+    setDetectionError(null);
+
+    try {
+      const result = await detectVideo(videoId, {
+        confidence_threshold: confidenceThreshold,
+        max_frames: maxFrames,
+      });
+      setDetectionResult(result);
+      setActiveMode('detection');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setDetectionError(err);
+      } else {
+        setDetectionError(new ApiError('Detection inference failed', 500));
+      }
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const isPipelineBusy = isUploading || isDetecting || isTracking || isCounting;
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border border-cyan-900/40 bg-gradient-to-r from-slate-900/90 via-slate-900/80 to-cyan-950/20 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <div className="p-3.5 rounded-xl bg-cyan-950/80 border border-cyan-800/60 text-cyan-400">
-            <Route className="h-6 w-6" />
+            <Calculator className="h-6 w-6" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold tracking-tight text-white">Video Ingestion & Object Tracking</h1>
+              <h1 className="text-xl font-bold tracking-tight text-white">Traffic Analysis & Vehicle Counting</h1>
               <Badge variant="success" size="sm">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                Phase 6: Multi-Object Tracking Active
+                Phase 7: Track-Based Vehicle Counting Active
               </Badge>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Connects <span className="font-mono text-cyan-300">Detector (YOLOv8n)</span> to <span className="font-mono text-cyan-300">ByteTrack (Kalman/IoU)</span> for persistent vehicle track IDs.
+              Transforms persistent <span className="font-mono text-cyan-300">ByteTrack</span> trajectories into deduplicated vehicle counts across virtual tripwires.
             </p>
           </div>
         </div>
@@ -189,7 +238,7 @@ export function VideoAnalysisPage() {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <Badge variant="info" size="md">
             <Activity className="h-3 w-3 mr-1" />
-            CV Pipeline Stage 2
+            CV Pipeline Stage 3
           </Badge>
         </div>
       </div>
@@ -207,7 +256,7 @@ export function VideoAnalysisPage() {
             </span>
           </CardTitle>
           <CardDescription>
-            Upload traffic camera footage for frame sampling, YOLO vehicle detection, and multi-object tracking.
+            Upload traffic camera footage for frame sampling, YOLO vehicle detection, multi-object tracking, and virtual-line crossing counting.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -334,14 +383,14 @@ export function VideoAnalysisPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-white">
                     <Sliders className="h-4 w-4 text-cyan-400" />
-                    <span>Inference & Tracking Controls</span>
+                    <span>Inference & Virtual Tripwire Controls</span>
                   </div>
                   <span className="text-[11px] font-mono text-slate-400">
-                    Detector: <span className="text-cyan-300">YOLOv8n</span> • Tracker: <span className="text-cyan-300">ByteTrack-Kalman-IoU</span>
+                    Pipeline: <span className="text-cyan-300">YOLOv8n &rarr; ByteTrack &rarr; LineCrossingCounter</span>
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
                   <div>
                     <label className="text-slate-300 block mb-1 font-medium">
                       Confidence Threshold: <span className="font-mono text-cyan-400">{confidenceThreshold}</span>
@@ -372,7 +421,7 @@ export function VideoAnalysisPage() {
                   </div>
                   <div>
                     <label className="text-slate-300 block mb-1 font-medium">
-                      IoU Matching Threshold: <span className="font-mono text-cyan-400">{iouThreshold}</span>
+                      IoU Matching: <span className="font-mono text-cyan-400">{iouThreshold}</span>
                     </label>
                     <input
                       type="range"
@@ -384,23 +433,37 @@ export function VideoAnalysisPage() {
                       className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                     />
                   </div>
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-medium">
+                      Tripwire Y-Level: <span className="font-mono text-cyan-400">{(linePositionRatio * 100).toFixed(0)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.20"
+                      max="0.80"
+                      step="0.05"
+                      value={linePositionRatio}
+                      onChange={(e) => setLinePositionRatio(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                    />
+                  </div>
                 </div>
 
                 {/* Pipeline Execution Buttons */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Info className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                    <span>Tracking maintains persistent Track IDs across video frames using Kalman motion association.</span>
+                    <span>Deduplicated counting: tracks crossing the virtual line are counted exactly once with direction.</span>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={isDetecting || isTracking}
+                      disabled={isPipelineBusy}
                       onClick={() => handleRunDetection(currentVideo.id)}
-                      className="w-full sm:w-auto text-xs"
+                      className="text-xs"
                     >
                       {isDetecting ? (
                         <>
@@ -410,18 +473,18 @@ export function VideoAnalysisPage() {
                       ) : (
                         <>
                           <Crosshair className="h-3.5 w-3.5 mr-1.5 text-cyan-400" />
-                          Detection Only (Phase 5)
+                          Detection (Phase 5)
                         </>
                       )}
                     </Button>
 
                     <Button
                       type="button"
-                      variant="primary"
+                      variant="outline"
                       size="sm"
-                      disabled={isDetecting || isTracking}
+                      disabled={isPipelineBusy}
                       onClick={() => handleRunTracking(currentVideo.id)}
-                      className="w-full sm:w-auto text-xs"
+                      className="text-xs"
                     >
                       {isTracking ? (
                         <>
@@ -430,8 +493,29 @@ export function VideoAnalysisPage() {
                         </>
                       ) : (
                         <>
-                          <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
-                          Run Object Tracking (Phase 6)
+                          <Route className="h-3.5 w-3.5 mr-1.5 text-cyan-400" />
+                          Tracking (Phase 6)
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={isPipelineBusy}
+                      onClick={() => handleRunCounting(currentVideo.id)}
+                      className="text-xs"
+                    >
+                      {isCounting ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Counting...
+                        </>
+                      ) : (
+                        <>
+                          <Calculator className="h-3.5 w-3.5 mr-1.5 fill-current" />
+                          Run Vehicle Counting (Phase 7)
                         </>
                       )}
                     </Button>
@@ -442,6 +526,15 @@ export function VideoAnalysisPage() {
           )}
 
           {/* Error States */}
+          {countingError && (
+            <ErrorState
+              title="Counting Inference Failed"
+              message={countingError.message}
+              code={countingError.code}
+              onRetry={() => currentVideo && handleRunCounting(currentVideo.id)}
+            />
+          )}
+
           {trackingError && (
             <ErrorState
               title="Tracking Inference Failed"
@@ -461,11 +554,13 @@ export function VideoAnalysisPage() {
           )}
 
           {/* Loading States */}
-          {(isTracking || isDetecting) && (
+          {isPipelineBusy && !isUploading && (
             <div className="p-8 rounded-xl bg-slate-900/80 border border-cyan-800/50">
               <LoadingState
                 message={
-                  isTracking
+                  isCounting
+                    ? 'Decoding frames, evaluating YOLO detections, updating ByteTrack Kalman filter, and computing line crossings...'
+                    : isTracking
                     ? 'Decoding frames, running YOLO detection, and associating bounding boxes with ByteTrack Kalman filter...'
                     : 'Decoding frames with VideoSource and computing YOLO vehicle detections...'
                 }
@@ -475,8 +570,22 @@ export function VideoAnalysisPage() {
           )}
 
           {/* Mode Tabs if results exist */}
-          {(trackingResult || detectionResult) && !isTracking && !isDetecting && (
+          {(countingResult || trackingResult || detectionResult) && !isPipelineBusy && (
             <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              {countingResult && (
+                <button
+                  type="button"
+                  onClick={() => setActiveMode('counting')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeMode === 'counting'
+                      ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Calculator className="h-3.5 w-3.5" />
+                  Vehicle Counting Results (Phase 7)
+                </button>
+              )}
               {trackingResult && (
                 <button
                   type="button"
@@ -488,7 +597,7 @@ export function VideoAnalysisPage() {
                   }`}
                 >
                   <Route className="h-3.5 w-3.5" />
-                  Object Tracking Results (Phase 6)
+                  Object Tracking (Phase 6)
                 </button>
               )}
               {detectionResult && (
@@ -508,10 +617,176 @@ export function VideoAnalysisPage() {
             </div>
           )}
 
-          {/* Real Tracking Results View (Phase 6) */}
-          {activeMode === 'tracking' && trackingResult && !isTracking && (
+          {/* Real Counting Results View (Phase 7) */}
+          {activeMode === 'counting' && countingResult && !isPipelineBusy && (
             <div className="p-6 rounded-xl border border-cyan-800/80 bg-slate-900/90 space-y-6">
               {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">Vehicle Counting & Directional Flow</h3>
+                    <Badge variant="success" size="sm">
+                      <Calculator className="h-3 w-3 mr-1" />
+                      Stage: Counting-Run
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Engine: <span className="font-mono text-cyan-300">LineCrossingCounter</span> • Tripwire: <span className="font-mono text-cyan-300">{countingResult.counting_line.label}</span> • Processed {countingResult.total_frames_processed} frames in <span className="font-mono text-emerald-400">{countingResult.processing_time_ms}ms</span>
+                  </p>
+                </div>
+                <Badge variant="outline" size="sm" className="font-mono text-xs">
+                  Tripwire Y = {(countingResult.counting_line.p1.y * 100).toFixed(0)}%
+                </Badge>
+              </div>
+
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
+                  <div className="p-2 rounded-md bg-cyan-950 border border-cyan-800 text-cyan-400">
+                    <Hash className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Total Counted</span>
+                    <p className="text-xl font-bold text-white">{countingResult.total_counted_vehicles}</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
+                  <div className="p-2 rounded-md bg-emerald-950 border border-emerald-800 text-emerald-400">
+                    <Car className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Cars Counted</span>
+                    <p className="text-xl font-bold text-emerald-300">{countingResult.counts_by_class['car'] || 0}</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
+                  <div className="p-2 rounded-md bg-amber-950 border border-amber-800 text-amber-400">
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Trucks Counted</span>
+                    <p className="text-xl font-bold text-amber-300">{countingResult.counts_by_class['truck'] || 0}</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
+                  <div className="p-2 rounded-md bg-purple-950 border border-purple-800 text-purple-400">
+                    <Bus className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Buses / Other</span>
+                    <p className="text-xl font-bold text-purple-300">
+                      {(countingResult.counts_by_class['bus'] || 0) +
+                        (countingResult.counts_by_class['motorcycle'] || 0) +
+                        (countingResult.counts_by_class['bicycle'] || 0)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3 col-span-2 sm:col-span-1">
+                  <div className="p-2 rounded-md bg-blue-950 border border-blue-800 text-blue-400">
+                    <ArrowRightLeft className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Directional Flow</span>
+                    <p className="text-xs font-mono text-slate-200 mt-0.5">
+                      In: <span className="text-cyan-300 font-bold">{countingResult.counts_by_direction['inbound'] || 0}</span> | Out: <span className="text-amber-300 font-bold">{countingResult.counts_by_direction['outbound'] || 0}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Annotated Preview with Virtual Tripwire & HUD */}
+              {countingResult.preview_frame_base64 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <Eye className="h-4 w-4 text-cyan-400" />
+                      Visual Tripwire Preview (with Line Crossing HUD)
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">Sampled Frame with Glowing Counting Line</span>
+                  </div>
+                  <div className="relative rounded-xl overflow-hidden border border-cyan-900/60 bg-black max-w-2xl mx-auto shadow-xl">
+                    <img
+                      src={countingResult.preview_frame_base64}
+                      alt="Vehicle Counting Preview"
+                      className="w-full h-auto object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Crossing Events Chronological Audit Log */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Line Crossing Events Log ({countingResult.crossing_events.length} events)
+                  </h4>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Deduplicated per persistent Track ID
+                  </span>
+                </div>
+
+                {countingResult.crossing_events.length > 0 ? (
+                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/80 rounded-lg border border-slate-800 bg-slate-950/60 font-mono text-xs">
+                    {countingResult.crossing_events.map((evt, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 hover:bg-slate-900/40 transition-colors flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-cyan-900/90 text-cyan-200 border border-cyan-700 text-[10px] font-bold">
+                            Track #{evt.track_id}
+                          </span>
+                          <span className="text-slate-200 font-semibold uppercase text-[11px]">
+                            {evt.class_name}
+                          </span>
+                          <Badge variant="outline" size="sm" className="text-[10px]">
+                            Frame #{evt.frame_index} ({evt.timestamp_seconds.toFixed(2)}s)
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 text-[10px]">
+                            Point: ({evt.crossing_point[0]}, {evt.crossing_point[1]})
+                          </span>
+                          <Badge
+                            variant={evt.direction === 'inbound' ? 'info' : 'warning'}
+                            size="sm"
+                          >
+                            {evt.direction === 'inbound' ? (
+                              <ArrowDownRight className="h-3 w-3 mr-1" />
+                            ) : (
+                              <ArrowUpRight className="h-3 w-3 mr-1" />
+                            )}
+                            {evt.direction.toUpperCase()}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-lg border border-slate-800 bg-slate-950/60 text-center text-xs text-slate-500 font-mono">
+                    No vehicles crossed the configured virtual line in this clip.
+                  </div>
+                )}
+              </div>
+
+              {/* Phase 8 Forward Note */}
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-950/30 border border-cyan-900/40 text-xs text-slate-300">
+                <Clock className="h-4 w-4 text-cyan-400 shrink-0" />
+                <span>
+                  <strong className="text-white">Counting active:</strong> Genuine, deduplicated vehicle counts are computed per track ID. Lane-level spatial analysis will be added in Phase 8.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Real Tracking Results View (Phase 6 fallback) */}
+          {activeMode === 'tracking' && trackingResult && !isPipelineBusy && (
+            <div className="p-6 rounded-xl border border-cyan-800/80 bg-slate-900/90 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div>
                   <div className="flex items-center gap-2">
@@ -522,154 +797,25 @@ export function VideoAnalysisPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Tracker: <span className="font-mono text-cyan-300">{trackingResult.tracker_name}</span> • Model: <span className="font-mono text-cyan-300">{trackingResult.detector_model}</span> • Processed {trackingResult.total_frames_processed} frames in <span className="font-mono text-emerald-400">{trackingResult.processing_time_ms}ms</span>
+                    Tracker: <span className="font-mono text-cyan-300">{trackingResult.tracker_name}</span> • Processed {trackingResult.total_frames_processed} frames in <span className="font-mono text-emerald-400">{trackingResult.processing_time_ms}ms</span>
                   </p>
                 </div>
-                <Badge variant="outline" size="sm" className="font-mono text-xs">
-                  IoU &ge; {iouThreshold} @ {trackingResult.target_fps} FPS
-                </Badge>
               </div>
 
-              {/* KPI Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
-                  <div className="p-2 rounded-md bg-cyan-950 border border-cyan-800 text-cyan-400">
-                    <Route className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Unique Tracks</span>
-                    <p className="text-lg font-bold text-white">{trackingResult.total_unique_tracks}</p>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
-                  <div className="p-2 rounded-md bg-emerald-950 border border-emerald-800 text-emerald-400">
-                    <Car className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Cars Tracked</span>
-                    <p className="text-lg font-bold text-emerald-300">{trackingResult.tracks_by_class['car'] || 0}</p>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
-                  <div className="p-2 rounded-md bg-amber-950 border border-amber-800 text-amber-400">
-                    <Truck className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Trucks Tracked</span>
-                    <p className="text-lg font-bold text-amber-300">{trackingResult.tracks_by_class['truck'] || 0}</p>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-slate-950/80 border border-cyan-950 flex items-center gap-3">
-                  <div className="p-2 rounded-md bg-purple-950 border border-purple-800 text-purple-400">
-                    <Bus className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Buses / Other</span>
-                    <p className="text-lg font-bold text-purple-300">
-                      {(trackingResult.tracks_by_class['bus'] || 0) +
-                        (trackingResult.tracks_by_class['motorcycle'] || 0) +
-                        (trackingResult.tracks_by_class['bicycle'] || 0)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Annotated Tracking Preview with Visible Track IDs */}
               {trackingResult.preview_frame_base64 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-                    <span className="flex items-center gap-1.5">
-                      <Eye className="h-4 w-4 text-cyan-400" />
-                      Visual Tracking Preview (with Persistent Track IDs)
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-mono">Sampled Frame with ID & Trajectory Labels</span>
-                  </div>
-                  <div className="relative rounded-xl overflow-hidden border border-cyan-900/60 bg-black max-w-2xl mx-auto shadow-xl">
-                    <img
-                      src={trackingResult.preview_frame_base64}
-                      alt="Object Tracking Preview"
-                      className="w-full h-auto object-contain"
-                    />
-                  </div>
+                <div className="relative rounded-xl overflow-hidden border border-cyan-900/60 bg-black max-w-2xl mx-auto shadow-xl">
+                  <img
+                    src={trackingResult.preview_frame_base64}
+                    alt="Tracking Preview"
+                    className="w-full h-auto object-contain"
+                  />
                 </div>
               )}
-
-              {/* Frame-by-Frame Track ID Continuity Inspector */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Track ID Continuity Timeline ({trackingResult.frames.length} frames)
-                  </h4>
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    Track ID · Class · Confidence · State
-                  </span>
-                </div>
-
-                <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/80 rounded-lg border border-slate-800 bg-slate-950/60 font-mono text-xs">
-                  {trackingResult.frames.map((frame, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 hover:bg-slate-900/40 transition-colors space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-cyan-300">
-                          Frame #{frame.frame_index} ({frame.timestamp_seconds}s)
-                        </span>
-                        <Badge
-                          variant={frame.active_tracks_count > 0 ? 'info' : 'outline'}
-                          size="sm"
-                        >
-                          {frame.active_tracks_count} {frame.active_tracks_count === 1 ? 'active track' : 'active tracks'}
-                        </Badge>
-                      </div>
-
-                      {frame.tracked_objects.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                          {frame.tracked_objects.map((obj, oIdx) => (
-                            <div
-                              key={oIdx}
-                              className="p-2 rounded bg-slate-900/80 border border-slate-800/80 flex items-center justify-between text-[11px]"
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span className="px-2 py-0.5 rounded bg-cyan-900/90 text-cyan-200 border border-cyan-700 text-[10px] font-bold font-mono">
-                                  Track #{obj.track_id}
-                                </span>
-                                <span className="text-slate-300 uppercase font-semibold text-[10px]">
-                                  {obj.class_name}
-                                </span>
-                                <span className="text-emerald-400 font-medium text-[10px]">
-                                  {(obj.confidence * 100).toFixed(1)}%
-                                </span>
-                              </div>
-                              <span className="text-slate-400 text-[10px]">
-                                Age: {obj.age_frames}f ({obj.state.toUpperCase()})
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-slate-600 italic">No active tracks in this frame</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Phase 7 Forward Note */}
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-950/30 border border-cyan-900/40 text-xs text-slate-300">
-                <Clock className="h-4 w-4 text-cyan-400 shrink-0" />
-                <span>
-                  <strong className="text-white">Tracking active:</strong> Persistent Track IDs are maintained across frames. Vehicle counting (line/zone crossing) will be added in Phase 7.
-                </span>
-              </div>
             </div>
           )}
 
           {/* Raw Detections View (Phase 5 fallback) */}
-          {activeMode === 'detection' && detectionResult && !isDetecting && (
+          {activeMode === 'detection' && detectionResult && !isPipelineBusy && (
             <div className="p-6 rounded-xl border border-cyan-800/80 bg-slate-900/90 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div>
@@ -709,7 +855,7 @@ export function VideoAnalysisPage() {
               <span>Ingested Videos Registry</span>
             </CardTitle>
             <CardDescription>
-              Previously uploaded video sources ready for tracking and analysis
+              Previously uploaded video sources ready for tracking and counting analysis
             </CardDescription>
           </div>
           <button
@@ -757,11 +903,11 @@ export function VideoAnalysisPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setCurrentVideo(vid);
-                        handleRunTracking(vid.id);
+                        handleRunCounting(vid.id);
                       }}
                     >
-                      <Route className="h-3 w-3 mr-1 text-cyan-400" />
-                      Track
+                      <Calculator className="h-3 w-3 mr-1 text-cyan-400" />
+                      Count
                     </Button>
                     <span className="font-mono text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded hidden sm:inline">
                       {vid.status.toUpperCase()}

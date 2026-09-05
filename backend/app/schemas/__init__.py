@@ -1,3 +1,12 @@
+from app.schemas.counting import (
+    CountingInfoResponse,
+    CountingLineSchema,
+    CountingRequest,
+    CrossingEventSchema,
+    FrameCountingResultSchema,
+    Point2DSchema,
+    VideoCountingResponse,
+)
 from app.schemas.detection import (
     BoundingBoxSchema,
     DetectionItem,
@@ -32,4 +41,11 @@ __all__ = [
     "VideoTrackingResponse",
     "TrackingRequest",
     "TrackerInfoResponse",
+    "Point2DSchema",
+    "CountingLineSchema",
+    "CrossingEventSchema",
+    "FrameCountingResultSchema",
+    "VideoCountingResponse",
+    "CountingRequest",
+    "CountingInfoResponse",
 ]
