@@ -15,6 +15,13 @@ from app.services.cv.tracker import (
     TrackState,
     VideoTrackingOutput,
 )
+from app.services.cv.traffic_metrics_engine import (
+    ClassMetric,
+    DirectionMetric,
+    TimeSeriesBucket,
+    TrafficMetricsEngine,
+    TrafficMetricsResult,
+)
 from app.services.cv.vehicle_counter import (
     CountingLine,
     CrossingEvent,
@@ -61,4 +68,9 @@ __all__ = [
     "CrossingEvent",
     "FrameCountingResult",
     "VideoCountingOutput",
+    "TrafficMetricsEngine",
+    "TrafficMetricsResult",
+    "TimeSeriesBucket",
+    "ClassMetric",
+    "DirectionMetric",
 ]

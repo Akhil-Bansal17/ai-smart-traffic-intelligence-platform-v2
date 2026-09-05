@@ -154,3 +154,27 @@ def count_video_shortcut(
         tracker=get_tracker(),
         counter=get_counter(),
     )
+
+
+@router.post(
+    "/{video_id}/analytics",
+    summary="Run traffic flow analytics on video by ID",
+    description="Shortcut for /api/v1/analytics/videos/{video_id}",
+)
+def analyze_video_shortcut(
+    video_id: str,
+    db: Session = Depends(get_db),
+):
+    from app.api.v1.analytics import analyze_video_traffic as run_analytics
+    from app.api.v1.analytics import get_analytics_engine
+    from app.api.v1.counting import get_counter
+    from app.api.v1.detection import get_detector
+    from app.api.v1.tracking import get_tracker
+    return run_analytics(
+        video_id=video_id,
+        db=db,
+        detector=get_detector(),
+        tracker=get_tracker(),
+        counter=get_counter(),
+        engine=get_analytics_engine(),
+    )

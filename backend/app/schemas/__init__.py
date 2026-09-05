@@ -1,3 +1,11 @@
+from app.schemas.analytics import (
+    AnalyticsInfoResponse,
+    AnalyticsRequest,
+    ClassMetricItem,
+    DirectionMetricItem,
+    TimeSeriesBucketSchema,
+    TrafficMetricsResponse,
+)
 from app.schemas.counting import (
     CountingInfoResponse,
     CountingLineSchema,
@@ -48,4 +56,10 @@ __all__ = [
     "VideoCountingResponse",
     "CountingRequest",
     "CountingInfoResponse",
+    "ClassMetricItem",
+    "DirectionMetricItem",
+    "TimeSeriesBucketSchema",
+    "TrafficMetricsResponse",
+    "AnalyticsRequest",
+    "AnalyticsInfoResponse",
 ]
