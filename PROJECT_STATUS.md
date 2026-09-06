@@ -77,6 +77,15 @@ Last updated: 2026-09-06
   - Frontend lane analytics dashboard extension in `TrafficAnalyticsPage.tsx` with Dual-Lane, 3-Lane, and Custom JSON polygon editors, persistence sliders, per-lane KPI breakdown, color-coded density gauges, and calibration warnings.
   - Comprehensive unit and integration test suite: `backend/tests/test_lane_analysis.py` with 13 tests covering geometry, ray-casting, validation, persistence, density arithmetic, and end-to-end API flows (84 passed total across entire project, 0 failures).
   - Real live verification script: `scripts/verify_phase9_lane_analysis.py` executed live with multi-lane vehicle trajectories and reproducible arithmetic verification.
+- **Phase 10 — Database Integration (2026-09-06):**
+  - Concrete SQLAlchemy 2.0 ORM models (`backend/app/models/analysis.py`): `AnalysisSession`, `TrafficMetricsRecord`, `LaneResultRecord`, `CrossingEventRecord` with explicit relationship cascades and foreign keys.
+  - Alembic migration `backend/migrations/versions/0002_create_analysis_tables.py` with table creation, indexes, downgrade scripts, and unique constraint `uq_crossing_event_session_track_line` on `(analysis_session_id, track_id, line_label)` for database-enforced deduplication.
+  - Pydantic v2 schemas (`backend/app/schemas/analysis.py`): `AnalysisRunRequest`, `AnalysisSessionDetailResponse`, `AnalysisSessionSummarySchema`, `AnalysisSessionListResponse`, `AnalysisInfoResponse`.
+  - `AnalysisPersistenceService` orchestrating the full verified CV pipeline and committing all session records atomically.
+  - REST API router mounted at `/api/v1/analysis` (`backend/app/api/v1/analysis.py`): execution, paginated historical queries, session details, and cascading deletion.
+  - Frontend Analysis History page (`frontend/src/pages/HistoryPage.tsx`) with search, filter, summary KPIs, session detail inspection modal (flow metrics, time-series, lane density polygons, crossing events), and zero-fake-data policy.
+  - Automated test suite `backend/tests/test_analysis_persistence.py` with 7 comprehensive unit/integration tests (92 backend tests passed total, 0 failures).
+  - Standalone live verification script `scripts/verify_phase10_database.py` verifying all 8 verification stages (schema, video ingestion, pipeline run, child records, unique constraint deduplication, session persistence survival, REST API retrieval, cascading deletion).
 
 ## Unfinished Work (by phase, per ARCHITECTURE.md / the master prompt)
 
@@ -91,7 +100,7 @@ Last updated: 2026-09-06
 | 7 | Vehicle Counting | ✅ Complete (verified live) |
 | 8 | Traffic Analytics & Flow Metrics | ✅ Complete (verified live) |
 | 9 | Lane Analysis & Density Estimation | ✅ Complete (verified live) |
-| 10 | Database Integration | ⬜ Not started |
+| 10 | Database Integration | ✅ Complete (verified live) |
 | 11 | Analytics Dashboard | ⬜ Not started |
 | 12 | Historical Analytics | ⬜ Not started |
 | 13 | Traffic Prediction | ⬜ Not started |

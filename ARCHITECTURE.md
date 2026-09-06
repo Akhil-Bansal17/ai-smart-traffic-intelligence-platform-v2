@@ -123,31 +123,89 @@ POST /api/v1/emergency/simulation
 
 All request/response shapes are Pydantic models. Errors are centrally handled and return a consistent shape — no internal stack traces ever reach the client. Structured logging (not print statements) throughout.
 
-## 8. Database Schema (PostgreSQL)
+## 8. Database Schema (PostgreSQL / SQLite via SQLAlchemy 2.0 & Alembic)
 
-Initial table design — will evolve via migrations as real requirements surface:
+Initial schema implemented and migrated via Alembic (`0001_create_videos_table.py`, `0002_create_analysis_tables.py`):
 
-**users** — id, email (unique), hashed_password, role, created_at
+**videos**
+- `id` (String(36) UUID, PK)
+- `uploaded_by` (String(36), nullable, indexed)
+- `original_filename` (String(255), not null)
+- `storage_path` (String(512), not null)
+- `duration_seconds` (Float, not null, default 0.0)
+- `fps` (Float, not null, default 0.0)
+- `resolution` (String(32), not null, default '0x0')
+- `frame_count` (Integer, not null, default 0)
+- `status` (String(32), not null, default 'uploaded', indexed)
+- `uploaded_at` (DateTime(timezone=True), not null, indexed)
 
-**videos** — id, uploaded_by (fk users), original_filename, storage_path, duration_seconds, fps, resolution, uploaded_at, status (uploaded/processing/processed/failed)
+**analysis_sessions**
+- `id` (String(36) UUID, PK)
+- `video_id` (String(36), FK `videos.id` ON DELETE CASCADE, not null, indexed)
+- `analysis_type` (String(32), not null, default 'full_pipeline', indexed)
+- `status` (String(32), not null, default 'pending', indexed)
+- `started_at` (DateTime(timezone=True), not null, indexed)
+- `completed_at` (DateTime(timezone=True), nullable)
+- `processing_time_ms` (Float, nullable)
+- `total_frames_processed` (Integer, not null, default 0)
+- `total_vehicles_detected` (Integer, not null, default 0)
+- `total_vehicles_counted` (Integer, not null, default 0)
+- `config_snapshot` (JSON, nullable — records confidence, IoU, tripwire geometry, and lane definitions)
+- `error_message` (Text, nullable)
+- `created_at` (DateTime(timezone=True), not null)
 
-**analysis_sessions** — id, video_id (fk), started_at, completed_at, status, total_vehicles, peak_traffic, avg_density, max_congestion, config_snapshot (jsonb — the thresholds/lanes used for this run, for reproducibility)
+**traffic_metrics**
+- `id` (String(36) UUID, PK)
+- `analysis_session_id` (String(36), FK `analysis_sessions.id` ON DELETE CASCADE, not null, indexed)
+- `observation_duration_seconds` (Float, not null, default 0.0)
+- `total_volume` (Integer, not null, default 0)
+- `flow_rate_per_minute` (Float, not null, default 0.0)
+- `flow_rate_per_hour` (Float, not null, default 0.0)
+- `is_extrapolated` (Boolean, not null, default true)
+- `class_distribution` (JSON, nullable — list of `{class_name, count, percentage}`)
+- `direction_distribution` (JSON, nullable — list of `{direction, count, percentage}`)
+- `time_series_buckets` (JSON, nullable — list of discrete non-interpolated time bins with counts and breakdowns)
+- `created_at` (DateTime(timezone=True), not null)
 
-**intersections** — id, name, latitude, longitude, description
+**lane_results**
+- `id` (String(36) UUID, PK)
+- `analysis_session_id` (String(36), FK `analysis_sessions.id` ON DELETE CASCADE, not null, indexed)
+- `lane_id` (String(64), not null, indexed)
+- `lane_name` (String(128), not null)
+- `direction_hint` (String(64), nullable)
+- `polygon_json` (JSON, not null — list of `[x, y]` coordinates)
+- `polygon_area_px2` (Float, not null, default 0.0 — computed via Shoelace formula)
+- `unique_vehicles_count` (Integer, not null, default 0)
+- `peak_occupancy` (Integer, not null, default 0)
+- `average_occupancy` (Float, not null, default 0.0)
+- `image_space_density` (Float, not null, default 0.0 — vehicles/px²)
+- `normalized_density_score` (Float, not null, default 0.0 — 0.0 to 1.0)
+- `vehicle_class_counts` (JSON, nullable)
+- `density_unit` (String(32), not null, default 'vehicles/px²')
+- `density_calibration_warning` (String(255), nullable)
+- `created_at` (DateTime(timezone=True), not null)
 
-**lanes** — id, intersection_id (fk, nullable for single-lane video sources), video_id (fk), name, direction, polygon (jsonb), counting_line (jsonb)
+**crossing_events**
+- `id` (String(36) UUID, PK)
+- `analysis_session_id` (String(36), FK `analysis_sessions.id` ON DELETE CASCADE, not null, indexed)
+- `track_id` (Integer, not null, indexed)
+- `class_name` (String(32), not null)
+- `direction` (String(32), not null)
+- `frame_index` (Integer, not null)
+- `timestamp_seconds` (Float, not null)
+- `centroid_x` (Float, not null)
+- `centroid_y` (Float, not null)
+- `line_label` (String(64), not null, default 'main_line')
+- `created_at` (DateTime(timezone=True), not null)
+- **Unique Constraint:** `uq_crossing_event_session_track_line` on `(analysis_session_id, track_id, line_label)` enforcing zero duplicate crossing events at the database level.
 
-**traffic_metrics** — id, analysis_session_id (fk), lane_id (fk, nullable), timestamp, vehicle_count, density_score, congestion_score, flow_rate, avg_speed_estimate, queue_length
+Planned Future Entities (Phases 12–16):
+- `users` (auth, roles)
+- `predictions` (short-horizon ML forecasts)
+- `signal_recommendations` (simulation recommendations)
+- `emergency_events` (emergency vehicle priority logs)
 
-**detections** — id, analysis_session_id (fk), track_id, frame_number, timestamp, class, confidence, bbox (jsonb), lane_id (fk, nullable), direction — *not* retained indefinitely (see retention note below)
-
-**predictions** — id, analysis_session_id (fk), generated_at, horizon_minutes, target (volume/congestion/queue), predicted_value, model_version
-
-**signal_recommendations** — id, analysis_session_id (fk), generated_at, current_timing (jsonb), recommended_timing (jsonb), expected_queue_change, expected_wait_change
-
-**emergency_events** — id, analysis_session_id (fk), detected_at, vehicle_type, origin, destination, recommended_route (jsonb), status (simulation-only field)
-
-Indexes on all foreign keys and on `(analysis_session_id, timestamp)` for the time-series tables. Raw per-frame `detections` rows are the highest-volume table by far — retention policy (e.g., aggregate-then-purge after N days) is a config value, not something we store forever by default (see Section 26 in the source master prompt / SECURITY.md).
+Indexes on all foreign keys and temporal attributes ensure fast historical filtering and dashboard aggregations. All child tables employ `ON DELETE CASCADE` to guarantee clean relational lifecycle management.
 
 ## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
 

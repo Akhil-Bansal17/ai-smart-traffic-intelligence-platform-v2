@@ -1,3 +1,12 @@
+from app.schemas.analysis import (
+    AnalysisInfoResponse,
+    AnalysisRunRequest,
+    AnalysisSessionDetailResponse,
+    AnalysisSessionListResponse,
+    AnalysisSessionSummarySchema,
+    LaneResultRecordSchema,
+    TrafficMetricsRecordSchema,
+)
 from app.schemas.analytics import (
     AnalyticsInfoResponse,
     AnalyticsRequest,
@@ -24,6 +33,13 @@ from app.schemas.detection import (
     VideoDetectionResponse,
 )
 from app.schemas.health import HealthResponse
+from app.schemas.lane_analysis import (
+    LaneAnalysisInfoResponse,
+    LaneAnalysisRequest,
+    LaneAnalyticsResponse,
+    LaneRegionSchema,
+    PerLaneSummarySchema,
+)
 from app.schemas.tracking import (
     FrameTrackingResultSchema,
     TrackedItem,
@@ -62,4 +78,16 @@ __all__ = [
     "TrafficMetricsResponse",
     "AnalyticsRequest",
     "AnalyticsInfoResponse",
+    "LaneRegionSchema",
+    "PerLaneSummarySchema",
+    "LaneAnalyticsResponse",
+    "LaneAnalysisRequest",
+    "LaneAnalysisInfoResponse",
+    "AnalysisRunRequest",
+    "AnalysisSessionSummarySchema",
+    "AnalysisSessionDetailResponse",
+    "AnalysisSessionListResponse",
+    "AnalysisInfoResponse",
+    "TrafficMetricsRecordSchema",
+    "LaneResultRecordSchema",
 ]
