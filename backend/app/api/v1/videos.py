@@ -178,3 +178,30 @@ def analyze_video_shortcut(
         counter=get_counter(),
         engine=get_analytics_engine(),
     )
+
+
+@router.post(
+    "/{video_id}/lane-analysis",
+    summary="Run lane analysis on video by ID",
+    description="Shortcut for /api/v1/lane-analysis/videos/{video_id}",
+)
+def lane_analysis_video_shortcut(
+    video_id: str,
+    request_params: dict,
+    db: Session = Depends(get_db),
+):
+    from app.api.v1.detection import get_detector
+    from app.api.v1.lane_analysis import analyze_video_lanes as run_lane_analysis
+    from app.api.v1.lane_analysis import get_lane_analyzer
+    from app.api.v1.tracking import get_tracker
+    from app.schemas.lane_analysis import LaneAnalysisRequest
+    req_obj = LaneAnalysisRequest.model_validate(request_params)
+    return run_lane_analysis(
+        video_id=video_id,
+        request_params=req_obj,
+        db=db,
+        detector=get_detector(),
+        tracker=get_tracker(),
+        analyzer=get_lane_analyzer(),
+    )
+

@@ -36,8 +36,16 @@ def run_live_verification():
     print(f"    - Target Vehicle Classes: {sorted(list(detector.target_classes))}")
     print(f"    - Total Supported COCO Classes: {len(detector.all_model_classes)}")
 
-    # 2. Test on sample image fixture with real vehicles (e.g. bus.jpg)
+    # 2. Test on sample image fixture with real vehicles (e.g. scratch/sample_bus.jpg or bus.jpg)
+    fixture_dir = Path("scratch")
+    fixture_dir.mkdir(parents=True, exist_ok=True)
     img_path = Path("bus.jpg")
+    if not img_path.exists():
+        img_path = fixture_dir / "sample_bus.jpg"
+    if not img_path.exists():
+        import urllib.request
+        urllib.request.urlretrieve("https://ultralytics.com/images/bus.jpg", str(img_path))
+
     if img_path.exists():
         img = cv2.imread(str(img_path))
         print(f"\n[2] Running Single Frame Inference on '{img_path.name}' ({img.shape[1]}x{img.shape[0]})...")

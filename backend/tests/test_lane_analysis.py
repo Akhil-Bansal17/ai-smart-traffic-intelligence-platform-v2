@@ -544,3 +544,40 @@ def test_lane_analysis_video_endpoint_end_to_end(tmp_path: Path):
         payload_str = str(data)
         assert "uploads" not in payload_str
         assert str(video_path) not in payload_str
+
+
+def test_videos_lane_analysis_shortcut_endpoint(tmp_path: Path):
+    """Verifies that POST /api/v1/videos/{video_id}/lane-analysis shortcut works."""
+    video_path = tmp_path / "test_shortcut.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(str(video_path), fourcc, 10.0, (200, 200))
+    for _ in range(5):
+        out.write(np.zeros((200, 200, 3), dtype=np.uint8))
+    out.release()
+
+    with TestClient(app) as client:
+        with open(video_path, "rb") as f:
+            upload_res = client.post(
+                "/api/v1/videos/upload",
+                files={"file": ("test_shortcut.mp4", f, "video/mp4")},
+            )
+        assert upload_res.status_code == 201
+        video_id = upload_res.json()["id"]
+
+        shortcut_res = client.post(
+            f"/api/v1/videos/{video_id}/lane-analysis",
+            json={
+                "lanes": [
+                    {
+                        "lane_id": "l1",
+                        "name": "Lane 1",
+                        "polygon": [[0, 0], [100, 0], [100, 100], [0, 100]],
+                    }
+                ]
+            },
+        )
+        assert shortcut_res.status_code == 200
+        data = shortcut_res.json()
+        assert data["video_id"] == video_id
+        assert len(data["lanes"]) == 1
+

@@ -10,17 +10,19 @@ Last updated: 2026-09-06
 ## Current Phase
 
 **Phase 1 — Architecture + Project Scaffolding: COMPLETE**
-**Phase 2 — Backend Foundation: COMPLETE (verified live)**
-**Phase 3 — Frontend Foundation: COMPLETE (verified live)**
-**Phase 4 — Video Ingestion: COMPLETE (verified live)**
-**Phase 5 — YOLO Detection: COMPLETE (verified live)**
-**Phase 6 — Object Tracking: COMPLETE (verified live — see Technical Decisions Log)**
-**Phase 7 — Vehicle Counting: COMPLETE (verified live — see Technical Decisions Log)**
-**Phase 8 — Traffic Analytics & Flow Metrics: COMPLETE (verified live — see Technical Decisions Log)**
-**Phase 9 — Lane Analysis & Density Estimation: COMPLETE (verified live — see Technical Decisions Log)**
-**Phase 10 — Database Integration: NOT STARTED (next task — see `prompts/10-database-integration.md`)**
+**Phase 2 — Backend Foundation: COMPLETE (re-verified live)**
+**Phase 3 — Frontend Foundation: COMPLETE (re-verified live)**
+**Phase 4 — Video Ingestion: COMPLETE (re-verified live)**
+**Phase 5 — YOLO Detection: COMPLETE (re-verified live)**
+**Phase 6 — Object Tracking: COMPLETE (re-verified live)**
+**Phase 7 — Vehicle Counting: COMPLETE (re-verified live)**
+**Phase 8 — Traffic Analytics & Flow Metrics: COMPLETE (re-verified live)**
+**Phase 9 — Lane Analysis & Density Estimation: COMPLETE (re-verified live)**
+**Phase 9.1 — Pre-Phase-10 Baseline Verification & Hardening: COMPLETE (PHASE 1–9 BASELINE = VERIFIED)**
+**Phase 10 — Database Integration: NOT STARTED (next task — ready for Phase 10)**
 
-> **Workflow note:** Phases 1–9 are independently verified, fully operational, and tested against live services, genuine YOLOv8n inference, ByteTrack multi-object tracking, mathematical line-crossing deduplicated counting, mathematically honest flow metrics, and configured polygon lane assignment with image-space density estimation.
+> **Workflow note:** Phases 1–9 baseline is rigorously verified and hardened. Re-verified all 85 backend tests end-to-end (100% passing), verified frontend TypeScript typecheck (`tsc --noEmit`) and production build (`vite build`, 0 errors), executed real live verification scripts for Phases 5–9 on real/synthetic video fixtures, confirmed cross-phase schema consistency, confirmed `.env.example` completeness against `Settings`, and audited git history for secrets hygiene (0 secrets/env files in history).
+
 
 ## Completed Work
 
@@ -125,18 +127,20 @@ None.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
 - Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations.
 
-## Latest Successful Tests
+## Latest Successful Tests (Phase 9.1 Baseline Verification)
 
-- **Backend Test Suite:** `pytest backend/tests` → **84 passed, 0 failures** (2026-09-06), covering Phase 2 (6), Phase 4 ingestion (12), Phase 5 detection (13), Phase 6 tracking (12), Phase 7 counting (16), Phase 8 flow metrics (12), and Phase 9 lane analysis (13).
-- **Live Real Lane Analysis Verification Evidence:** Verified live with `scripts/verify_phase9_lane_analysis.py`:
-  - Pipeline init: `40.0ms` (YOLOv8n + ByteTrack + LaneAnalyzer on CPU).
-  - 25 video frames evaluated ($T_{\text{obs}} = 2.40\text{s}$): 2 active lanes with genuine vehicle trajectories.
-  - Left Lane (ID: `lane_left`, area: $280,000.00\text{ px}^2$): 1 vehicle (bus), density $\rho = 1 / 280,000 = 0.00000357\text{ veh/px}^2$, normalized score $0.0089$.
-  - Right Lane (ID: `lane_right`, area: $280,000.00\text{ px}^2$): 1 vehicle (bus), density $\rho = 1 / 280,000 = 0.00000357\text{ veh/px}^2$, normalized score $0.0089$.
-  - Exact formula check verified: Shoelace area, density $\rho = N / A$, normalized score $\min(1.0, N / (A / 2500))$.
-- **Frontend Typecheck & Build:** `npm run build` (`tsc && vite build`) → **1612 modules transformed, success in 5.29s (0 errors, 0 warnings)**.
+- **Backend Test Suite:** `python -m pytest backend/tests -v` → **85 passed, 0 failures** (2026-09-06), covering Phase 2 health/settings/db (6), Phase 4 video ingestion (13), Phase 5 detection (11), Phase 6 tracking (12), Phase 7 counting (16), Phase 8 flow metrics (12), and Phase 9 lane analysis (15).
+- **Live Real Verification Scripts Executed & Confirmed:**
+  - `scripts/verify_phase5_yolo.py`: YOLOv8n initialized in 36.1ms, single-frame inference on real vehicle (bus, 87.3% conf) in 37.93ms (26.4 FPS), multi-frame video 10 frames sampled at 5 FPS processed in 435ms (43.5ms/frame).
+  - `scripts/verify_phase6_tracking.py`: ByteTrack-Kalman-IoU initialized in 36.8ms, 10 video frames processed at 4.1 FPS, persistent track ID #1 verified across all 10 frames with active lifecycle state and 10 hits.
+  - `scripts/verify_phase7_counting.py`: Line crossing tripwire initialized in 32.0ms, single vehicle trajectory crossing line at frame 12 (1.20s), counted exactly once as inbound (1 inbound, 0 duplicates, 0 miscounts).
+  - `scripts/verify_phase8_analytics.py`: Pipeline initialized in 38.5ms, $T_{\text{obs}} = 2.60\text{s}$, Flow Rate / min = 23.08 veh/min, Flow Rate / hr = 1384.62 veh/hr, `is_extrapolated = True`, 100% bus, 100% inbound, discrete non-interpolated time-series buckets sum strictly equals total volume.
+  - `scripts/verify_phase9_lane_analysis.py`: Dual-lane analysis on 25 video frames, 2 configured polygon lanes (Shoelace area $280,000\text{ px}^2$ each), image-space density $\rho = 0.00000357\text{ veh/px}^2$, normalized score $0.0089$, density calibration transparency warning verified.
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`tsc && vite build`) → **1612 modules transformed, success in 5.13s (0 errors, 0 warnings)**.
+- **Frontend Integration Suite:** `node tests/test_integration.mjs` → **20 passed, 0 failed**; `node tests/test_health_client.mjs` → offline and live online state handling verified.
 
 ## Next Task
 
 **Phase 10 — Database Integration.** Wire persistence layer for video analysis sessions, crossing event logs, flow analytics, lane configurations, and aggregated metrics tables.
+
 

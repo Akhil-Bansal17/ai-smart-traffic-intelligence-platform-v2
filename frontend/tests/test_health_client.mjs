@@ -28,9 +28,9 @@ async function testHealthClient() {
     }
   }
 
-  // 1. Verify offline behavior (backend currently stopped)
-  console.log('1. Checking behavior when backend is STOPPED:');
-  const offlineResult = await simulateGetHealth('http://localhost:8000');
+  // 1. Verify offline behavior (unreachable port simulation)
+  console.log('1. Checking behavior when backend is UNREACHABLE:');
+  const offlineResult = await simulateGetHealth('http://localhost:9999');
   console.log('   Result status:', offlineResult.status);
   console.log('   Error code:', offlineResult.error?.code);
   console.log('   Error message:', offlineResult.error?.message);
@@ -40,6 +40,18 @@ async function testHealthClient() {
     process.exit(1);
   }
   console.log('   [PASS] Offline state correctly identified without throwing or crashing.\n');
+
+  // 2. Verify online behavior (live backend)
+  console.log('2. Checking behavior when backend is ONLINE:');
+  const onlineResult = await simulateGetHealth('http://localhost:8000');
+  console.log('   Result status:', onlineResult.status);
+  console.log('   Health data:', JSON.stringify(onlineResult.data));
+
+  if (onlineResult.status !== 'online' || !onlineResult.data) {
+    console.error('FAILED: Expected online state with valid health data');
+    process.exit(1);
+  }
+  console.log('   [PASS] Online state correctly parsed and reported.\n');
 }
 
 testHealthClient();
