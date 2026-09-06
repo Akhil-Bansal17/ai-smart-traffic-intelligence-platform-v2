@@ -1,3 +1,9 @@
 export * from './api';
 export * from './health';
 export * from './video';
+export * from './detection';
+export * from './tracking';
+export * from './counting';
+export * from './analytics';
+export * from './lane_analysis';
+

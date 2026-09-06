@@ -61,10 +61,10 @@ Module responsibilities (`backend/app/services/cv/`):
 |---|---|
 | `video_source.py` | Yields frames from an uploaded file today; webcam/RTSP adapters later, same interface. |
 | `detector.py` | Wraps Ultralytics YOLO. Input: frame. Output: list of `(bbox, class, confidence)`. Confidence/class thresholds come from config. |
-| `tracker.py` | Wraps ByteTrack/BoT-SORT behind a `Tracker` interface (`update(detections) -> tracked_objects`) so the algorithm is replaceable. Assigns/persists a track ID per vehicle across frames. |
+| `tracker.py` | Wraps ByteTrack Kalman/IoU behind a `Tracker` interface (`update(detections) -> tracked_objects`). Assigns/persists a track ID per vehicle across frames. |
 | `vehicle_counter.py` | Counts a track only when its trajectory crosses a configured line/zone — not per-frame — so one vehicle is counted once. |
-| `lane_analyzer.py` | Maps a tracked point to a configured lane polygon; computes per-lane count, density, queue length, estimated speed. |
-| `traffic_metrics_engine.py` | Aggregates lane-level output into flow rate, occupancy, directional distribution, and the 0–100 density/congestion score. |
+| `lane_analyzer.py` | Assigns tracked vehicle centroids (`TrackedObject.center`) to configured polygon lane regions via ray-casting with temporal persistence; computes Shoelace polygon area, deduplicated counts, class breakdowns, image-space density ($\text{veh/px}^2$), normalized density scores ($0.0-1.0$), and frame occupancies. |
+| `traffic_metrics_engine.py` | Aggregates crossing output into flow rate ($N/T_{\text{obs}}$), directional distribution, discrete non-interpolated time-series volume bucketing, and transparent extrapolation flagging. |
 
 Per-detection fields persisted: track ID, class, confidence, bounding box, frame number, timestamp, lane, direction.
 

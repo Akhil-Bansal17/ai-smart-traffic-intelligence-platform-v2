@@ -7,6 +7,15 @@ from app.services.cv.detector import (
     VideoDetectionOutput,
     YOLOVehicleDetector,
 )
+from app.services.cv.lane_analyzer import (
+    LaneAnalyticsResult,
+    LaneAnalyzer,
+    LaneAssignmentEngine,
+    LaneRegion,
+    PerLaneSummary,
+    point_in_polygon_raycast,
+    polygon_area_shoelace,
+)
 from app.services.cv.tracker import (
     ByteTrackVehicleTracker,
     FrameTrackingResult,
@@ -73,4 +82,12 @@ __all__ = [
     "TimeSeriesBucket",
     "ClassMetric",
     "DirectionMetric",
+    "LaneAnalyzer",
+    "LaneAssignmentEngine",
+    "LaneRegion",
+    "PerLaneSummary",
+    "LaneAnalyticsResult",
+    "polygon_area_shoelace",
+    "point_in_polygon_raycast",
 ]
+

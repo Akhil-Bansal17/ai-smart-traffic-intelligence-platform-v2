@@ -6,7 +6,7 @@ this one router, not individual endpoint modules.
 """
 from fastapi import APIRouter
 
-from app.api.v1 import analytics, counting, detection, health, tracking, videos
+from app.api.v1 import analytics, counting, detection, health, lane_analysis, tracking, videos
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
@@ -15,3 +15,5 @@ api_router.include_router(detection.router, prefix="/detection", tags=["detectio
 api_router.include_router(tracking.router, prefix="/tracking", tags=["tracking"])
 api_router.include_router(counting.router, prefix="/counting", tags=["counting"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(lane_analysis.router, prefix="/lane-analysis", tags=["lane-analysis"])
+
