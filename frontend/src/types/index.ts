@@ -7,4 +7,4 @@ export * from './counting';
 export * from './analytics';
 export * from './lane_analysis';
 export * from './analysis';
-
+export * from './prediction';

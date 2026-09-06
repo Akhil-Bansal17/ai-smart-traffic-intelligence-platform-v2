@@ -4,6 +4,10 @@ from app.models.analysis import (
     LaneResultRecord,
     TrafficMetricsRecord,
 )
+from app.models.prediction import (
+    PredictionItem,
+    PredictionRun,
+)
 from app.models.video import Video
 
 __all__ = [
@@ -12,4 +16,6 @@ __all__ = [
     "TrafficMetricsRecord",
     "LaneResultRecord",
     "CrossingEventRecord",
+    "PredictionRun",
+    "PredictionItem",
 ]

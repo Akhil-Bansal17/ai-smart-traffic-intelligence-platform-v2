@@ -9,6 +9,10 @@ from app.models.analysis import (  # noqa: F401
     LaneResultRecord,
     TrafficMetricsRecord,
 )
+from app.models.prediction import (  # noqa: F401
+    PredictionItem,
+    PredictionRun,
+)
 from app.models.video import Video  # noqa: F401
 
 __all__ = [
@@ -18,4 +22,6 @@ __all__ = [
     "TrafficMetricsRecord",
     "LaneResultRecord",
     "CrossingEventRecord",
+    "PredictionRun",
+    "PredictionItem",
 ]

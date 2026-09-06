@@ -40,6 +40,17 @@ from app.schemas.lane_analysis import (
     LaneRegionSchema,
     PerLaneSummarySchema,
 )
+from app.schemas.prediction import (
+    DatasetReadinessResponse,
+    GenerateFixturesRequest,
+    ModelEvaluationSchema,
+    PredictionInfoResponse,
+    PredictionItemSchema,
+    PredictionRunDetailResponse,
+    PredictionRunListResponse,
+    PredictionRunSummarySchema,
+    TrainModelRequest,
+)
 from app.schemas.tracking import (
     FrameTrackingResultSchema,
     TrackedItem,
@@ -90,4 +101,13 @@ __all__ = [
     "AnalysisInfoResponse",
     "TrafficMetricsRecordSchema",
     "LaneResultRecordSchema",
+    "PredictionInfoResponse",
+    "DatasetReadinessResponse",
+    "TrainModelRequest",
+    "PredictionItemSchema",
+    "ModelEvaluationSchema",
+    "PredictionRunDetailResponse",
+    "PredictionRunSummarySchema",
+    "PredictionRunListResponse",
+    "GenerateFixturesRequest",
 ]

@@ -199,9 +199,41 @@ Initial schema implemented and migrated via Alembic (`0001_create_videos_table.p
 - `created_at` (DateTime(timezone=True), not null)
 - **Unique Constraint:** `uq_crossing_event_session_track_line` on `(analysis_session_id, track_id, line_label)` enforcing zero duplicate crossing events at the database level.
 
+**prediction_runs** (Phase 11)
+- `id` (String(36) UUID, PK)
+- `session_id` (String(36), FK `analysis_sessions.id` ON DELETE SET NULL, nullable, indexed)
+- `model_type` (String(64), not null) — e.g. `random_forest`, `hist_gradient_boosting`, `ridge`, `naive_persistence`
+- `data_source` (String(32), not null) — `real_observations` or `synthetic_fixture` (strictly labeled per data reality policy)
+- `sample_count` (Integer, not null, default 0)
+- `train_samples` (Integer, not null, default 0)
+- `test_samples` (Integer, not null, default 0)
+- `horizon_steps` (Integer, not null, default 3)
+- `time_step_seconds` (Integer, not null, default 300)
+- `mae` (Float, not null, default 0.0) — evaluated on held-out test split
+- `rmse` (Float, not null, default 0.0)
+- `r2_score` (Float, not null, default 0.0)
+- `baseline_mae` (Float, not null, default 0.0) — naive persistence benchmark ($t = t-1$)
+- `baseline_rmse` (Float, not null, default 0.0)
+- `baseline_improvement_pct` (Float, not null, default 0.0)
+- `feature_importance` (JSON, nullable)
+- `created_at` (DateTime(timezone=True), not null)
+
+**prediction_items** (Phase 11)
+- `id` (String(36) UUID, PK)
+- `prediction_run_id` (String(36), FK `prediction_runs.id` ON DELETE CASCADE, not null, indexed)
+- `step` (Integer, not null) — 1, 2, 3...
+- `predicted_volume` (Float, not null, default 0.0)
+- `predicted_inbound` (Float, not null, default 0.0)
+- `predicted_outbound` (Float, not null, default 0.0)
+- `predicted_density_state` (String(32), not null, default 'medium')
+- `lower_bound` (Float, not null, default 0.0) — empirical residual prediction interval lower bound
+- `upper_bound` (Float, not null, default 0.0) — empirical residual prediction interval upper bound
+- `forecast_horizon_seconds` (Integer, not null, default 0)
+- `target_timestamp` (DateTime(timezone=True), not null)
+- `created_at` (DateTime(timezone=True), not null)
+
 Planned Future Entities (Phases 12–16):
 - `users` (auth, roles)
-- `predictions` (short-horizon ML forecasts)
 - `signal_recommendations` (simulation recommendations)
 - `emergency_events` (emergency vehicle priority logs)
 
