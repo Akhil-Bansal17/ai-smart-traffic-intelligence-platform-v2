@@ -6,7 +6,8 @@ Handles:
 - GET /api/v1/videos/{video_id} — Retrieve video record and metadata
 - GET /api/v1/videos — List all uploaded videos
 """
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AppException
@@ -33,6 +34,7 @@ logger = get_logger(__name__)
 )
 async def upload_video(
     file: UploadFile = File(...),
+    source_type: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ) -> VideoUploadResponse:
     # Step 1: Save upload with streaming size & magic-byte validation
@@ -43,7 +45,16 @@ async def upload_video(
         with VideoSource(dest_path) as source:
             metadata = source.read_metadata()
 
-        # Step 3: Persist record in database
+        # Step 3: Determine provenance classification
+        lower_name = original_name.lower()
+        if source_type:
+            resolved_source = source_type
+        elif any(k in lower_name for k in ("test_", "synthetic", "fixture", "clip_", "camera_stream", "live_test")):
+            resolved_source = "synthetic_test"
+        else:
+            resolved_source = "real_world"
+
+        # Step 4: Persist record in database
         video = Video(
             original_filename=original_name,
             storage_path=str(dest_path),
@@ -51,13 +62,14 @@ async def upload_video(
             fps=metadata.fps,
             resolution=metadata.resolution,
             frame_count=metadata.frame_count,
+            source_type=resolved_source,
             status="uploaded",
         )
         db.add(video)
         db.commit()
         db.refresh(video)
 
-        logger.info("Successfully ingested video '%s' (ID: %s, %s, %s FPS)", original_name, video.id, metadata.resolution, metadata.fps)
+        logger.info("Successfully ingested video '%s' (ID: %s, %s, %s FPS, source: %s)", original_name, video.id, metadata.resolution, metadata.fps, resolved_source)
         return VideoUploadResponse.model_validate(video)
 
     except Exception:

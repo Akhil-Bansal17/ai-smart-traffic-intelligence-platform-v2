@@ -4,7 +4,7 @@
 
 export type ModelType = 'random_forest' | 'hist_gradient_boosting' | 'ridge' | 'naive_persistence';
 
-export type DataSource = 'real_observations' | 'real_observations_insufficient' | 'synthetic_fixture';
+export type DataSource = 'real_observations' | 'real_observations_insufficient' | 'synthetic_pipeline' | 'synthetic_fixture';
 
 export interface PredictionInfoResponse {
   model_types: string[];
@@ -24,6 +24,8 @@ export interface DatasetReadinessResponse {
   session_count: number;
   status_code: string;
   data_source: DataSource;
+  real_sample_count?: number;
+  synthetic_sample_count?: number;
   earliest_timestamp?: string | null;
   latest_timestamp?: string | null;
 }

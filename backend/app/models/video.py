@@ -64,6 +64,12 @@ class Video(Base):
         default="uploaded",
         index=True,
     )
+    source_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="real_world",
+        index=True,
+    )
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utcnow,
@@ -72,4 +78,4 @@ class Video(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Video(id={self.id}, name={self.original_filename}, status={self.status})>"
+        return f"<Video(id={self.id}, name={self.original_filename}, source={self.source_type}, status={self.status})>"

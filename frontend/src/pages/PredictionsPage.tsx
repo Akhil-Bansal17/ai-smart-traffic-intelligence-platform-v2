@@ -221,6 +221,10 @@ export function PredictionsPage() {
                 <Badge variant="success" size="sm">
                   <CheckCircle2 className="h-3 w-3 mr-1" /> Ready for Real Training
                 </Badge>
+              ) : (readiness?.synthetic_sample_count ?? 0) > 0 ? (
+                <Badge variant="info" size="sm">
+                  <AlertTriangle className="h-3 w-3 mr-1" /> Pipeline Test Only (0 Real Observations)
+                </Badge>
               ) : (
                 <Badge variant="warning" size="sm">
                   <AlertTriangle className="h-3 w-3 mr-1" /> Insufficient Real Data (&lt; 20)
@@ -228,39 +232,43 @@ export function PredictionsPage() {
               )}
             </div>
             <CardDescription className="text-xs text-slate-400">
-              Per strict data reality policy, ML models require at least 20 real historical observations for non-leaking chronological evaluation.
+              Per strict data reality policy, ML models require at least 20 genuine real-world observations for held-out evaluation. Synthetic data proves pipeline mechanics, not real forecasting.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                <div className="text-[11px] text-slate-500">Real DB Observations</div>
+                <div className="text-[11px] text-slate-500">Real-World Observations</div>
                 <div className="text-xl font-bold font-mono text-slate-200 mt-0.5">
-                  {readiness?.sample_count ?? 0}
+                  {readiness?.real_sample_count ?? readiness?.sample_count ?? 0}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">Min required: 20</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+                <div className="text-[11px] text-slate-500">Synthetic / Pipeline Data</div>
+                <div className="text-xl font-bold font-mono text-cyan-400 mt-0.5">
+                  {readiness?.synthetic_sample_count ?? 0}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-1">Test pipeline samples</div>
               </div>
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
                 <div className="text-[11px] text-slate-500">Analysis Sessions</div>
                 <div className="text-xl font-bold font-mono text-cyan-400 mt-0.5">
                   {readiness?.session_count ?? 0}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1">CV pipelines run</div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                <div className="text-[11px] text-slate-500">Min Threshold</div>
-                <div className="text-xl font-bold font-mono text-cyan-400 mt-0.5">
-                  {readiness?.threshold ?? 20}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-1">Observations</div>
+                <div className="text-[10px] text-slate-500 mt-1">Real CV sessions</div>
               </div>
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
                 <div className="text-[11px] text-slate-500">Readiness State</div>
                 <div className="text-xs font-bold font-mono text-slate-300 mt-1.5 truncate uppercase">
-                  {readiness?.status_code?.replace(/_/g, ' ') || 'CHECKING'}
+                  {readiness?.is_ready
+                    ? 'READY'
+                    : (readiness?.synthetic_sample_count ?? 0) > 0
+                    ? 'PIPELINE ONLY'
+                    : 'NO REAL DATA'}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">
-                  {readiness?.data_source === 'real_observations' ? 'Real Observations' : 'Insufficient Real Data'}
+                  {readiness?.data_source === 'real_observations' ? 'Real Observations' : 'No Real-World Data'}
                 </div>
               </div>
             </div>
@@ -474,6 +482,10 @@ export function PredictionsPage() {
                     <Badge variant="success" size="sm">
                       <CheckCircle2 className="h-3 w-3 mr-1" /> Real Observations
                     </Badge>
+                  ) : activeRun.data_source === 'synthetic_pipeline' ? (
+                    <Badge variant="info" size="sm">
+                      <Cpu className="h-3 w-3 mr-1" /> Synthetic Pipeline
+                    </Badge>
                   ) : (
                     <Badge variant="warning" size="sm">
                       <Sparkles className="h-3 w-3 mr-1" /> Synthetic Fixture
@@ -486,6 +498,21 @@ export function PredictionsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Transparent Provenance Disclaimer Banner */}
+          {activeRun.data_source !== 'real_observations' && (
+            <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-xs text-amber-200/90 flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-semibold text-amber-100">Provenance Notice: </span>
+                <span>
+                  {activeRun.data_source === 'synthetic_pipeline'
+                    ? 'This forecast was trained on synthetic/test video processed through the CV pipeline. While validating CV-to-ML pipeline mechanics end-to-end, it does not represent real-world traffic forecasting accuracy.'
+                    : 'This forecast was trained on synthetic development fixtures (purely mathematical, without CV video processing). Suitable for local interface testing only.'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Multi-step Forecast Timeline */}
           <Card className="border-slate-800 bg-slate-900/80 shadow-lg">
@@ -701,9 +728,11 @@ export function PredictionsPage() {
                       </td>
                       <td className="py-2.5 px-3">
                         {run.data_source === 'real_observations' ? (
-                          <Badge variant="success" size="sm">Real DB</Badge>
+                          <Badge variant="success" size="sm">Real-World</Badge>
+                        ) : run.data_source === 'synthetic_pipeline' ? (
+                          <Badge variant="info" size="sm">Synthetic Pipeline</Badge>
                         ) : (
-                          <Badge variant="warning" size="sm">Synthetic</Badge>
+                          <Badge variant="warning" size="sm">Synthetic Fixture</Badge>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-slate-300">

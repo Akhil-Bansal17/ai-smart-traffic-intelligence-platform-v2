@@ -301,12 +301,13 @@ def test_prediction_api_insufficient_data_rejection(client):
 
 
 def test_real_data_training_and_forecasting_persistence(db_session, client):
-    """Tests full lifecycle of training on real database records, provenance tagging, and persistence."""
+    """Tests full lifecycle of training on genuine real-world records, provenance tagging, and persistence."""
     base_time = datetime(2026, 9, 1, 8, 0, 0, tzinfo=timezone.utc)
     vid = Video(
         id="test_vid_real_pred",
-        original_filename="real_test.mp4",
-        storage_path="/tmp/real_test.mp4",
+        original_filename="real_traffic_highway_cam.mp4",
+        storage_path="/storage/real_traffic_highway_cam.mp4",
+        source_type="real_world",
         status="ready",
     )
     db_session.add(vid)
@@ -352,3 +353,71 @@ def test_real_data_training_and_forecasting_persistence(db_session, client):
     assert run is not None
     assert run.data_source == "real_observations"
     assert len(run.predictions) == 3
+
+
+def test_synthetic_pipeline_provenance_and_rejection(db_session, client):
+    """Tests that synthetic pipeline data is never misclassified as real_observations and rejected for real forecasting."""
+    base_time = datetime(2026, 9, 1, 8, 0, 0, tzinfo=timezone.utc)
+    vid = Video(
+        id="test_vid_syn_pipeline",
+        original_filename="synthetic_test_bus_clip.mp4",
+        storage_path="/scratch/synthetic_test_bus_clip.mp4",
+        source_type="synthetic_test",
+        status="ready",
+    )
+    db_session.add(vid)
+    db_session.flush()
+
+    for i in range(25):
+        sess = AnalysisSession(
+            id=f"syn_sess_{i:03d}",
+            video_id=vid.id,
+            status="completed",
+            started_at=base_time + timedelta(minutes=i * 5),
+            total_frames_processed=50,
+            total_vehicles_detected=2,
+            total_vehicles_counted=1,
+        )
+        db_session.add(sess)
+        db_session.flush()
+        metrics = TrafficMetricsRecord(
+            analysis_session_id=sess.id,
+            observation_duration_seconds=300.0,
+            total_volume=5,
+            flow_rate_per_minute=1.0,
+            flow_rate_per_hour=60.0,
+            is_extrapolated=True,
+        )
+        db_session.add(metrics)
+    db_session.commit()
+
+    # 1. Check readiness API reports not ready for real forecasting
+    r_ready = client.get("/api/v1/predictions/readiness")
+    assert r_ready.status_code == 200
+    ready_data = r_ready.json()
+    assert ready_data["is_ready"] is False
+    assert ready_data["real_sample_count"] == 0
+    assert ready_data["synthetic_sample_count"] == 25
+    assert ready_data["status_code"] == "synthetic_pipeline_only"
+
+    # 2. POST /train without fallback must be rejected with 400
+    r_fail = client.post(
+        "/api/v1/predictions/train",
+        json={"model_name": "RandomForestRegressor", "use_fixtures_if_insufficient": False},
+    )
+    assert r_fail.status_code == 400
+    assert "Insufficient genuine real-world observations" in r_fail.json()["error"]["message"]
+
+    # 3. POST /train with fallback allowed must train and persist as synthetic_pipeline
+    r_train = client.post(
+        "/api/v1/predictions/train",
+        json={"model_name": "RandomForestRegressor", "use_fixtures_if_insufficient": True},
+    )
+    assert r_train.status_code == 201
+    train_data = r_train.json()
+    assert train_data["data_source"] == "synthetic_pipeline"
+
+    # 4. Confirm persistence in database
+    run = db_session.scalars(select(PredictionRun).where(PredictionRun.id == train_data["id"])).first()
+    assert run is not None
+    assert run.data_source == "synthetic_pipeline"

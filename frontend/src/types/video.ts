@@ -6,6 +6,7 @@ export interface VideoMetadata {
   resolution: string;
   frame_count: number;
   status: 'uploaded' | 'processing' | 'processed' | 'failed';
+  source_type?: 'real_world' | 'synthetic_test';
   uploaded_at: string;
 }
 

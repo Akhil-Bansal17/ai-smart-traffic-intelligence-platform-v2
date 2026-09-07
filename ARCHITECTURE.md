@@ -93,6 +93,10 @@ Raw Traffic Data → Cleaning → EDA → Feature Engineering
 
 - **Targets:** short-horizon (5–15 min) vehicle volume, congestion, and/or queue length — final target chosen once real data exists to support it.
 - **Candidate models:** linear regression and a tree ensemble (Random Forest / XGBoost) as baselines; a time-series-appropriate model if the baseline underperforms. No model is chosen before there's a reason to prefer it.
+- **3-Tier Data Provenance Model (Phase 11.2):**
+  - `real_observations`: Derived exclusively from genuine recorded real-world traffic camera footage. Minimum 20 required to train real forecasting models.
+  - `synthetic_pipeline`: Genuine CV pipeline (YOLO/ByteTrack/Counter/Analytics) execution on synthetic/test video clips. Validates CV-to-ML integration; explicitly rejected for real forecasting.
+  - `synthetic_fixture`: Mathematically generated development fixtures with diurnal patterns for unit testing and offline development.
 - **Evaluation is never invented.** Metrics reported in docs/README always come from an actual eval run logged in PROJECT_STATUS.md.
 
 ## 6. Decision-Support Simulations (explicitly not real control systems)
@@ -136,6 +140,7 @@ Initial schema implemented and migrated via Alembic (`0001_create_videos_table.p
 - `fps` (Float, not null, default 0.0)
 - `resolution` (String(32), not null, default '0x0')
 - `frame_count` (Integer, not null, default 0)
+- `source_type` (String(32), not null, default 'real_world', indexed) — `real_world` vs `synthetic_test` (Phase 11.2 provenance audit)
 - `status` (String(32), not null, default 'uploaded', indexed)
 - `uploaded_at` (DateTime(timezone=True), not null, indexed)
 
@@ -203,7 +208,7 @@ Initial schema implemented and migrated via Alembic (`0001_create_videos_table.p
 - `id` (String(36) UUID, PK)
 - `session_id` (String(36), FK `analysis_sessions.id` ON DELETE SET NULL, nullable, indexed)
 - `model_type` (String(64), not null) — e.g. `random_forest`, `hist_gradient_boosting`, `ridge`, `naive_persistence`
-- `data_source` (String(32), not null) — `real_observations` or `synthetic_fixture` (strictly labeled per data reality policy)
+- `data_source` (String(32), not null) — strictly labeled: `real_observations` (genuine camera video), `synthetic_pipeline` (CV pipeline output on synthetic/test video), or `synthetic_fixture` (direct fixture generator per Phase 11.2 provenance policy)
 - `sample_count` (Integer, not null, default 0)
 - `train_samples` (Integer, not null, default 0)
 - `test_samples` (Integer, not null, default 0)

@@ -69,6 +69,8 @@ def check_dataset_readiness(
         message=readiness.message,
         session_count=readiness.session_count,
         status_code=readiness.status_code,
+        real_sample_count=readiness.real_sample_count,
+        synthetic_sample_count=readiness.synthetic_sample_count,
         earliest_timestamp=readiness.earliest_timestamp,
         latest_timestamp=readiness.latest_timestamp,
     )
@@ -257,6 +259,8 @@ def generate_synthetic_fixtures(
             f"Generated {len(fixtures)} clearly-labeled synthetic fixture observations. "
             "Suitable for development testing only — not real-world traffic data."
         ),
+        real_sample_count=0,
+        synthetic_sample_count=len(fixtures),
         earliest_timestamp=earliest,
         latest_timestamp=latest,
     )

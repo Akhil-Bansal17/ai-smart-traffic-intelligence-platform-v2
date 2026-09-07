@@ -20,6 +20,7 @@ class VideoResponse(BaseModel):
     resolution: str
     frame_count: int
     status: str
+    source_type: str = "real_world"
     uploaded_at: datetime
 
 
@@ -33,6 +34,7 @@ class VideoUploadResponse(BaseModel):
     resolution: str
     frame_count: int
     status: str
+    source_type: str = "real_world"
     uploaded_at: datetime
 
 

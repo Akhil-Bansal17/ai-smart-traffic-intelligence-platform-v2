@@ -35,6 +35,8 @@ class DatasetReadiness:
     message: str
     session_count: int = 0
     status_code: str = "insufficient_observations"
+    real_sample_count: int = 0
+    synthetic_sample_count: int = 0
     earliest_timestamp: Optional[str] = None
     latest_timestamp: Optional[str] = None
 
@@ -50,6 +52,7 @@ class TrafficDataPoint:
     observation_duration_seconds: float
     session_id: str
     is_synthetic: bool = False
+    data_source: str = "real_observations"
 
 
 class DatasetExtractor:
@@ -64,33 +67,47 @@ class DatasetExtractor:
     def check_readiness(self, db: Session) -> DatasetReadiness:
         """
         Inspects real persisted database records to determine if sufficient observations exist.
+        Strictly distinguishes genuine real-world observations from synthetic pipeline tests.
         """
-        data_points = self.extract_from_db(db)
-        count = len(data_points)
-        is_ready = count >= self.min_samples
+        all_points = self.extract_from_db(db)
+        real_points = [p for p in all_points if not p.is_synthetic]
+        synthetic_points = [p for p in all_points if p.is_synthetic]
 
-        distinct_sessions = len(set(dp.session_id for dp in data_points))
+        real_count = len(real_points)
+        synthetic_count = len(synthetic_points)
+        is_ready = real_count >= self.min_samples
 
-        earliest = data_points[0].timestamp.isoformat() if data_points else None
-        latest = data_points[-1].timestamp.isoformat() if data_points else None
+        distinct_real_sessions = len(set(dp.session_id for dp in real_points))
 
-        if count == 0:
-            message = (
-                f"Dataset contains 0 real observations (minimum required: {self.min_samples}). "
-                "Prediction unavailable: no historical observations."
-            )
+        earliest = real_points[0].timestamp.isoformat() if real_points else None
+        latest = real_points[-1].timestamp.isoformat() if real_points else None
+
+        if real_count == 0:
+            if synthetic_count > 0:
+                distinct_syn_sessions = len(set(dp.session_id for dp in synthetic_points))
+                message = (
+                    f"Dataset contains 0 genuine real-world observations (minimum required: {self.min_samples}). "
+                    f"Found {synthetic_count} synthetic/test-pipeline observations across {distinct_syn_sessions} session(s) "
+                    "suitable for CV-to-ML pipeline testing only — not real-world traffic forecasting."
+                )
+                status_code = "synthetic_pipeline_only"
+            else:
+                message = (
+                    f"Dataset contains 0 real observations (minimum required: {self.min_samples}). "
+                    "Prediction unavailable: no historical observations."
+                )
+                status_code = "no_observations"
             source = "real_observations_insufficient"
-            status_code = "no_observations"
         elif not is_ready:
             message = (
-                f"Dataset contains only {count} real observations across {distinct_sessions} session(s) "
+                f"Dataset contains only {real_count} real-world observations across {distinct_real_sessions} session(s) "
                 f"(minimum required: {self.min_samples}). Prediction unavailable: insufficient historical observations."
             )
             source = "real_observations_insufficient"
             status_code = "insufficient_observations"
         else:
             message = (
-                f"Dataset contains {count} real observations across {distinct_sessions} session(s) "
+                f"Dataset contains {real_count} genuine real-world observations across {distinct_real_sessions} session(s) "
                 f"(threshold: {self.min_samples}). Sufficient for chronological model training."
             )
             source = "real_observations"
@@ -98,20 +115,29 @@ class DatasetExtractor:
 
         return DatasetReadiness(
             is_ready=is_ready,
-            sample_count=count,
+            sample_count=real_count,
             threshold=self.min_samples,
             data_source=source,
             message=message,
-            session_count=distinct_sessions,
+            session_count=distinct_real_sessions,
             status_code=status_code,
+            real_sample_count=real_count,
+            synthetic_sample_count=synthetic_count,
             earliest_timestamp=earliest,
             latest_timestamp=latest,
         )
 
-    def extract_from_db(self, db: Session) -> List[TrafficDataPoint]:
+    def extract_from_db(
+        self,
+        db: Session,
+        source_filter: Optional[str] = None,
+    ) -> List[TrafficDataPoint]:
         """
         Extracts all chronological time-series points from persisted traffic metrics.
         Preserves strict temporal ordering without future leakage.
+        Tags each observation truthfully with:
+        - "real_observations" if underlying video source is genuine real-world traffic
+        - "synthetic_pipeline" if underlying video source is synthetic/test footage
         """
         # Query completed sessions ordered by started_at
         sessions = db.scalars(
@@ -124,6 +150,26 @@ class DatasetExtractor:
 
         for s in sessions:
             if not s.traffic_metrics:
+                continue
+
+            # Determine provenance of the session from video metadata
+            video = s.video
+            is_synthetic_video = False
+            if video:
+                if getattr(video, "source_type", None) == "synthetic_test":
+                    is_synthetic_video = True
+                else:
+                    lower_name = (video.original_filename or "").lower()
+                    lower_path = (video.storage_path or "").lower()
+                    if any(k in lower_name for k in ("test_", "synthetic", "fixture", "traffic_clip", "camera_stream", "live_test")) or "scratch" in lower_path:
+                        is_synthetic_video = True
+            else:
+                is_synthetic_video = True
+
+            point_source = "synthetic_pipeline" if is_synthetic_video else "real_observations"
+            is_synthetic = is_synthetic_video
+
+            if source_filter and point_source != source_filter:
                 continue
 
             metrics = s.traffic_metrics
@@ -153,7 +199,8 @@ class DatasetExtractor:
                             outbound_count=outbound,
                             observation_duration_seconds=duration,
                             session_id=s.id,
-                            is_synthetic=False,
+                            is_synthetic=is_synthetic,
+                            data_source=point_source,
                         )
                     )
             else:
@@ -175,7 +222,8 @@ class DatasetExtractor:
                         ),
                         observation_duration_seconds=float(metrics.observation_duration_seconds),
                         session_id=s.id,
-                        is_synthetic=False,
+                        is_synthetic=is_synthetic,
+                        data_source=point_source,
                     )
                 )
 
@@ -193,7 +241,7 @@ class DatasetExtractor:
         """
         Generates clearly-labeled synthetic fixture data for testing and local development.
         Follows realistic diurnal traffic patterns (morning & evening peaks + Poisson noise).
-        Strictly labeled with is_synthetic=True.
+        Strictly labeled with is_synthetic=True and data_source='synthetic_fixture'.
         """
         rng = np.random.RandomState(random_seed)
         if start_time is None:
@@ -233,6 +281,7 @@ class DatasetExtractor:
                     observation_duration_seconds=float(interval_minutes * 60),
                     session_id=f"synthetic_fixture_sample_{i:04d}",
                     is_synthetic=True,
+                    data_source="synthetic_fixture",
                 )
             )
 

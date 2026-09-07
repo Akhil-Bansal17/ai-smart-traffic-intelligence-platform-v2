@@ -197,8 +197,14 @@ class TrafficPredictor:
             for name in feat_result.feature_names:
                 importances[name] = 1.0 if name == "lag_1_volume" else 0.0
 
-        is_synthetic = any(dp.is_synthetic for dp in data_points)
-        data_source = "synthetic_fixture" if is_synthetic else "real_observations"
+        # Determine precise data source provenance
+        sources = set(getattr(dp, "data_source", "real_observations") for dp in data_points)
+        if "synthetic_fixture" in sources:
+            data_source = "synthetic_fixture"
+        elif "synthetic_pipeline" in sources or any(dp.is_synthetic for dp in data_points):
+            data_source = "synthetic_pipeline"
+        else:
+            data_source = "real_observations"
 
         eval_result = ModelEvaluationResult(
             model_name=model_name,
@@ -276,6 +282,7 @@ class TrafficPredictor:
                     observation_duration_seconds=float(interval_minutes * 60),
                     session_id="forecast_step",
                     is_synthetic=True,
+                    data_source=eval_result.data_source,
                 )
             )
 
@@ -291,21 +298,26 @@ class TrafficPredictor:
         """
         High-level orchestrator: loads data from DB (or fixtures if explicitly allowed),
         trains model, evaluates against baseline, generates predictions, and saves to database.
+        Strictly enforces that synthetic data is never labeled as real_observations.
         """
-        real_points = self.extractor.extract_from_db(db)
-        data_source = "real_observations"
-        data_points = real_points
+        all_db_points = self.extractor.extract_from_db(db)
+        real_points = [p for p in all_db_points if not p.is_synthetic]
+        synthetic_pipeline_points = [p for p in all_db_points if p.is_synthetic]
 
-        if len(real_points) < self.extractor.min_samples:
-            if not use_fixtures_if_insufficient:
-                raise AppException(
-                    f"Insufficient real data in database ({len(real_points)} observations < {self.extractor.min_samples}). "
-                    "Cannot train model without real observations. Set use_fixtures_if_insufficient=True to train on development fixtures.",
-                    status_code=400,
-                )
+        if len(real_points) >= self.extractor.min_samples:
+            data_points = real_points
+        elif not use_fixtures_if_insufficient:
+            raise AppException(
+                f"Insufficient real data: Insufficient genuine real-world observations in database ({len(real_points)} < {self.extractor.min_samples}). "
+                "Cannot train model without genuine real-world traffic data. Set use_fixtures_if_insufficient=True to test using synthetic data.",
+                status_code=400,
+            )
+        elif len(synthetic_pipeline_points) >= self.extractor.min_samples:
+            # Test pipeline observations exist from CV execution on synthetic videos
+            data_points = synthetic_pipeline_points
+        else:
             # Generate transparent development fixtures
             data_points = self.extractor.generate_synthetic_fixtures(num_samples=120)
-            data_source = "synthetic_fixture"
 
         interval_minutes = 5
         horizon_steps = max(1, horizon_minutes // interval_minutes)

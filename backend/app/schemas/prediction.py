@@ -50,6 +50,8 @@ class DatasetReadinessResponse(BaseModel):
     message: str
     session_count: int = 0
     status_code: str = "insufficient_observations"
+    real_sample_count: int = 0
+    synthetic_sample_count: int = 0
     earliest_timestamp: Optional[str] = None
     latest_timestamp: Optional[str] = None
 
