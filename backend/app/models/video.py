@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -67,8 +67,30 @@ class Video(Base):
     source_type: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        default="real_world",
+        default="unknown",
         index=True,
+    )
+    source_reference: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    license_reference: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    provenance_note: Mapped[Optional[str]] = mapped_column(
+        String(512),
+        nullable=True,
+    )
+    provenance_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+    )
+    captured_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -78,4 +100,4 @@ class Video(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Video(id={self.id}, name={self.original_filename}, source={self.source_type}, status={self.status})>"
+        return f"<Video(id={self.id}, name={self.original_filename}, source={self.source_type}, verified={self.provenance_verified}, status={self.status})>"

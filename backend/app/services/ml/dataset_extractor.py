@@ -152,22 +152,31 @@ class DatasetExtractor:
             if not s.traffic_metrics:
                 continue
 
-            # Determine provenance of the session from video metadata
+            # Determine provenance of the session from video metadata under strict trust boundary
             video = s.video
-            is_synthetic_video = False
-            if video:
-                if getattr(video, "source_type", None) == "synthetic_test":
-                    is_synthetic_video = True
-                else:
-                    lower_name = (video.original_filename or "").lower()
-                    lower_path = (video.storage_path or "").lower()
-                    if any(k in lower_name for k in ("test_", "synthetic", "fixture", "traffic_clip", "camera_stream", "live_test")) or "scratch" in lower_path:
-                        is_synthetic_video = True
-            else:
-                is_synthetic_video = True
+            is_genuine_real = False
+            point_source = "synthetic_pipeline"
+            is_synthetic = True
 
-            point_source = "synthetic_pipeline" if is_synthetic_video else "real_observations"
-            is_synthetic = is_synthetic_video
+            if video:
+                src_type = getattr(video, "source_type", "unknown")
+                is_prov_verified = getattr(video, "provenance_verified", False) is True
+                has_src_ref = bool(getattr(video, "source_reference", None))
+
+                if src_type == "real_world" and is_prov_verified and has_src_ref:
+                    is_genuine_real = True
+                    point_source = "real_observations"
+                    is_synthetic = False
+                elif src_type == "synthetic_test":
+                    point_source = "synthetic_pipeline"
+                    is_synthetic = True
+                else:
+                    # 'unknown' or unverified uploads: excluded from real ML
+                    point_source = "synthetic_pipeline"
+                    is_synthetic = True
+            else:
+                point_source = "synthetic_pipeline"
+                is_synthetic = True
 
             if source_filter and point_source != source_filter:
                 continue

@@ -93,8 +93,8 @@ Raw Traffic Data → Cleaning → EDA → Feature Engineering
 
 - **Targets:** short-horizon (5–15 min) vehicle volume, congestion, and/or queue length — final target chosen once real data exists to support it.
 - **Candidate models:** linear regression and a tree ensemble (Random Forest / XGBoost) as baselines; a time-series-appropriate model if the baseline underperforms. No model is chosen before there's a reason to prefer it.
-- **3-Tier Data Provenance Model (Phase 11.2):**
-  - `real_observations`: Derived exclusively from genuine recorded real-world traffic camera footage. Minimum 20 required to train real forecasting models.
+- **3-Tier Data Provenance Model (Phase 11.2 & Phase 11 Final Closure):**
+  - `real_observations`: Derived exclusively from genuine recorded real-world traffic camera footage with verified provenance (`source_type = 'real_world'`, `provenance_verified = True`, `source_reference != None`). Minimum 20 required to train real forecasting models.
   - `synthetic_pipeline`: Genuine CV pipeline (YOLO/ByteTrack/Counter/Analytics) execution on synthetic/test video clips. Validates CV-to-ML integration; explicitly rejected for real forecasting.
   - `synthetic_fixture`: Mathematically generated development fixtures with diurnal patterns for unit testing and offline development.
 - **Evaluation is never invented.** Metrics reported in docs/README always come from an actual eval run logged in PROJECT_STATUS.md.
@@ -129,7 +129,7 @@ All request/response shapes are Pydantic models. Errors are centrally handled an
 
 ## 8. Database Schema (PostgreSQL / SQLite via SQLAlchemy 2.0 & Alembic)
 
-Initial schema implemented and migrated via Alembic (`0001_create_videos_table.py`, `0002_create_analysis_tables.py`):
+Schema managed via Alembic migrations (`0001` through `0005_harden_video_provenance_fields.py`):
 
 **videos**
 - `id` (String(36) UUID, PK)
@@ -140,7 +140,12 @@ Initial schema implemented and migrated via Alembic (`0001_create_videos_table.p
 - `fps` (Float, not null, default 0.0)
 - `resolution` (String(32), not null, default '0x0')
 - `frame_count` (Integer, not null, default 0)
-- `source_type` (String(32), not null, default 'real_world', indexed) — `real_world` vs `synthetic_test` (Phase 11.2 provenance audit)
+- `source_type` (String(32), not null, default 'unknown', indexed) — `real_world`, `synthetic_test`, or `unknown`
+- `source_reference` (String(255), nullable) — direct URL or repository commit identifier
+- `license_reference` (String(255), nullable) — open source license (e.g. MIT, CC-BY-4.0)
+- `provenance_note` (String(512), nullable) — detailed description of recording context
+- `provenance_verified` (Boolean, not null, default False, indexed) — cryptographic/audited provenance verification flag
+- `captured_at` (DateTime(timezone=True), nullable) — timestamp when footage was recorded
 - `status` (String(32), not null, default 'uploaded', indexed)
 - `uploaded_at` (DateTime(timezone=True), not null, indexed)
 

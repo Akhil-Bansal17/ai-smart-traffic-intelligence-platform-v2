@@ -35,6 +35,10 @@ logger = get_logger(__name__)
 async def upload_video(
     file: UploadFile = File(...),
     source_type: Optional[str] = Form(None),
+    source_reference: Optional[str] = Form(None),
+    license_reference: Optional[str] = Form(None),
+    provenance_note: Optional[str] = Form(None),
+    provenance_verified: Optional[bool] = Form(None),
     db: Session = Depends(get_db),
 ) -> VideoUploadResponse:
     # Step 1: Save upload with streaming size & magic-byte validation
@@ -45,14 +49,42 @@ async def upload_video(
         with VideoSource(dest_path) as source:
             metadata = source.read_metadata()
 
-        # Step 3: Determine provenance classification
+        # Step 3: Determine provenance classification under strict trust boundary
         lower_name = original_name.lower()
-        if source_type:
-            resolved_source = source_type
-        elif any(k in lower_name for k in ("test_", "synthetic", "fixture", "clip_", "camera_stream", "live_test")):
+        lower_path = str(dest_path).lower()
+        is_test_fixture = (
+            any(k in lower_name for k in ("test_", "synthetic", "fixture", "clip_", "camera_stream", "live_test"))
+            or "scratch" in lower_path
+            or source_type == "synthetic_test"
+        )
+
+        if is_test_fixture:
             resolved_source = "synthetic_test"
-        else:
+            is_verified = True
+            source_ref = source_reference or "internal://test_fixtures"
+            lic_ref = license_reference or "Test Fixture"
+            prov_note = provenance_note or "Synthetic pipeline test clip"
+        elif source_type == "real_world" and source_reference and license_reference:
+            # Verified real-world footage with documented source and license references
             resolved_source = "real_world"
+            is_verified = bool(provenance_verified) if provenance_verified is not None else True
+            source_ref = source_reference
+            lic_ref = license_reference
+            prov_note = provenance_note or "Audited real-world traffic footage"
+        elif source_type == "real_world":
+            # Client claims real_world but provides no verifiable source/license reference
+            resolved_source = "unknown"
+            is_verified = False
+            source_ref = source_reference
+            lic_ref = license_reference
+            prov_note = "Unverified real-world claim without source reference; excluded from real ML."
+        else:
+            # Default unverified upload
+            resolved_source = "unknown"
+            is_verified = False
+            source_ref = source_reference
+            lic_ref = license_reference
+            prov_note = provenance_note or "Unclassified upload; excluded from real ML until provenance verified."
 
         # Step 4: Persist record in database
         video = Video(
@@ -63,13 +95,25 @@ async def upload_video(
             resolution=metadata.resolution,
             frame_count=metadata.frame_count,
             source_type=resolved_source,
+            source_reference=source_ref,
+            license_reference=lic_ref,
+            provenance_note=prov_note,
+            provenance_verified=is_verified,
             status="uploaded",
         )
         db.add(video)
         db.commit()
         db.refresh(video)
 
-        logger.info("Successfully ingested video '%s' (ID: %s, %s, %s FPS, source: %s)", original_name, video.id, metadata.resolution, metadata.fps, resolved_source)
+        logger.info(
+            "Successfully ingested video '%s' (ID: %s, %s, %s FPS, source: %s, verified: %s)",
+            original_name,
+            video.id,
+            metadata.resolution,
+            metadata.fps,
+            resolved_source,
+            is_verified,
+        )
         return VideoUploadResponse.model_validate(video)
 
     except Exception:

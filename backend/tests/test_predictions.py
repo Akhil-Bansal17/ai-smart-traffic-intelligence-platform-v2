@@ -101,6 +101,9 @@ def test_dataset_readiness_insufficient_vs_sufficient(db_session):
         id="test_vid_pred",
         original_filename="test.mp4",
         storage_path="/tmp/test.mp4",
+        source_type="real_world",
+        provenance_verified=True,
+        source_reference="https://example.com/real_traffic.mp4",
         status="ready",
     )
     db_session.add(vid)
@@ -308,6 +311,8 @@ def test_real_data_training_and_forecasting_persistence(db_session, client):
         original_filename="real_traffic_highway_cam.mp4",
         storage_path="/storage/real_traffic_highway_cam.mp4",
         source_type="real_world",
+        provenance_verified=True,
+        source_reference="https://example.com/real_traffic_highway_cam.mp4",
         status="ready",
     )
     db_session.add(vid)
