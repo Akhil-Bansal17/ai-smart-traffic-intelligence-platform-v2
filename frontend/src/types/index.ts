@@ -8,3 +8,4 @@ export * from './analytics';
 export * from './lane_analysis';
 export * from './analysis';
 export * from './prediction';
+export * from './signalOptimization';

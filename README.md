@@ -1,23 +1,29 @@
 # 🚦 AI Smart Traffic Intelligence Platform
 
-> **Status: early development (Phases 1–4 of 20 complete; Phase 5 in progress).** This README will be replaced with the full portfolio version in Phase 20. Right now it exists so the repo is self-explanatory from day one.
+> **Status: Active Development (Phases 1–12 Complete & Verified; Phase 13 in progress).** See `PROJECT_STATUS.md` for live test evidence, verification scripts, and provenance audits.
 
-An AI-powered traffic intelligence and decision-support platform: computer vision (vehicle detection + multi-object tracking) feeding a traffic-analytics engine, a short-horizon prediction model, and two explicitly-labeled decision-support simulations (signal timing, emergency corridor routing). Built end-to-end — CV pipeline, ML pipeline, API, database, and a real frontend — not a single-notebook YOLO demo.
+An AI-powered traffic intelligence and decision-support platform: computer vision (vehicle detection + multi-object tracking) feeding a traffic-analytics engine, a short-horizon prediction model, and two explicitly-labeled decision-support simulations (signal timing, emergency corridor routing). Built end-to-end — CV pipeline, ML pipeline, decision-support simulation, REST API, database, and an interactive React frontend — not a single-notebook YOLO demo.
 
-## What this is not (yet)
+> **Safety & Operational Scope Disclaimer:** *This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
 
-No feature below is claimed as finished unless `PROJECT_STATUS.md` says so. As of this commit, working FastAPI backend (with secure video ingestion), React frontend, and database foundations exist and are tested (see `PROJECT_STATUS.md` for exact verification evidence) — but the CV detection/tracking pipeline, ML pipeline, and decision simulations do not exist yet.
+## Implemented & Verified Capabilities (Phases 1–12)
 
-## Planned Capabilities
+- **Video Ingestion & Validation (Phase 4):** Secure container magic-byte verification, path-traversal prevention, metadata extraction.
+- **Vehicle Detection (Phase 5):** Ultralytics YOLOv8n multi-class classification (`car`, `motorcycle`, `bus`, `truck`, `bicycle`).
+- **Object Tracking (Phase 6):** ByteTrack Kalman filter motion prediction + IoU association with track lifecycle states.
+- **Vehicle Counting (Phase 7):** Virtual line-crossing detector with 2D cross-product transition testing and zero double-counting.
+- **Traffic Flow Analytics (Phase 8):** Minute/hourly flow rates, class distributions, directional splits, discrete time-series bucketing.
+- **Lane Analysis & Density (Phase 9):** Configurable 2D polygonal lane assignment, Shoelace area calculation, image-space density estimation.
+- **Database Integration & Persistence (Phase 10):** Relational persistence of sessions, metrics, lane occupancy, and crossing events.
+- **Short-Horizon Traffic Forecasting (Phase 11):** Non-leaking lag feature engineering, classical ML models (Random Forest, HistGradientBoosting, Ridge), empirical residual prediction intervals, and strict 3-tier data provenance tracking.
+- **Traffic Signal Optimization Simulation (Phase 12):** Deterministic baseline signal plans, 3 explainable optimization algorithms (Demand-Proportional, Webster's Method, Constrained Delay Minimization), Webster delay proxy modeling ($d_1 + d_2 - d_3$), HCM Level of Service (LOS A–F), and interactive React simulation dashboard.
 
-- Vehicle detection & multi-class classification (car, motorcycle, bus, truck, bicycle)
-- Multi-object tracking with persistent IDs (no double-counting)
-- Configurable lane/zone-based counting, density, and queue-length estimation
-- Explainable congestion scoring (0–100, with stated reasons)
-- Short-horizon (5–15 min) traffic prediction, evaluated against real held-out data
-- Signal-timing recommendation — **simulation, not live control**
-- Emergency corridor routing — **simulation, not live control**
-- Historical analytics dashboard
+## Planned Capabilities (Phases 13–18)
+
+- Emergency corridor routing simulation — **simulation, not live control**
+- Aggregated historical analytics dashboard
+- Role-based authentication & system configuration
+- Docker Compose containerization & deployment
 
 ## Tech Stack
 

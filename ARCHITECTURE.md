@@ -1,7 +1,9 @@
 # ARCHITECTURE.md
 ## AI Smart Traffic Intelligence Platform
 
-Status: **Design phase (Phase 1)**. Nothing described here is implemented yet unless PROJECT_STATUS.md says otherwise. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+Status: **Phases 1–12 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+
+> **Decision Support Disclaimer:** *This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
 
 ---
 
@@ -242,12 +244,58 @@ Schema managed via Alembic migrations (`0001` through `0005_harden_video_provena
 - `target_timestamp` (DateTime(timezone=True), not null)
 - `created_at` (DateTime(timezone=True), not null)
 
-Planned Future Entities (Phases 12–16):
+**signal_simulation_runs** (Phase 12)
+- `id` (String(36) UUID, PK)
+- `analysis_session_id` (String(36), FK `analysis_sessions.id` ON DELETE SET NULL, nullable, indexed)
+- `intersection_id` (String(64), not null)
+- `intersection_name` (String(128), not null)
+- `algorithm_used` (String(64), not null, indexed) — `demand_proportional`, `webster_optimal`, or `constrained_delay_min`
+- `data_source` (String(64), not null) — strictly labeled: `real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, or `synthetic_fixture`
+- `baseline_cycle_length` (Float, not null, default 0.0)
+- `optimized_cycle_length` (Float, not null, default 0.0)
+- `baseline_avg_delay_seconds` (Float, not null, default 0.0)
+- `optimized_avg_delay_seconds` (Float, not null, default 0.0)
+- `delay_reduction_pct` (Float, not null, default 0.0)
+- `baseline_max_queue_vehicles` (Float, not null, default 0.0)
+- `optimized_max_queue_vehicles` (Float, not null, default 0.0)
+- `queue_reduction_pct` (Float, not null, default 0.0)
+- `baseline_throughput_vph` (Float, not null, default 0.0)
+- `optimized_throughput_vph` (Float, not null, default 0.0)
+- `throughput_increase_pct` (Float, not null, default 0.0)
+- `baseline_los` (String(8), not null, default 'LOS_D')
+- `optimized_los` (String(8), not null, default 'LOS_C')
+- `simulation_duration_minutes` (Float, not null, default 60.0)
+- `is_simulation` (Boolean, not null, default True)
+- `simulation_notes` (Text, nullable)
+- `intersection_config_snapshot` (JSON, nullable)
+- `baseline_plan_snapshot` (JSON, nullable)
+- `optimized_plan_snapshot` (JSON, nullable)
+- `approach_performance_snapshot` (JSON, nullable)
+- `created_at` (DateTime(timezone=True), not null, indexed)
+
+Planned Future Entities (Phases 13–16):
 - `users` (auth, roles)
-- `signal_recommendations` (simulation recommendations)
 - `emergency_events` (emergency vehicle priority logs)
 
-Indexes on all foreign keys and temporal attributes ensure fast historical filtering and dashboard aggregations. All child tables employ `ON DELETE CASCADE` to guarantee clean relational lifecycle management.
+Indexes on all foreign keys and temporal attributes ensure fast historical filtering and dashboard aggregations. All child tables employ `ON DELETE CASCADE` (or `ON DELETE SET NULL` for decoupled simulation runs) to guarantee clean relational lifecycle management.
+
+## 8.1. Signal Optimization Simulation Architecture (Phase 12)
+
+The Signal Optimization Simulation module is a decision-support and traffic-engineering analytical engine that models signal timings, computes baseline versus optimized phase allocations, and calculates standard transportation engineering performance metrics.
+
+> **Operational Scope Disclaimer:** *This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
+
+### Components (`backend/app/services/simulation/`):
+- `models.py`: Strongly typed dataclasses for `IntersectionConfig`, `ApproachConfig`, `ApproachDemand`, `SignalPhaseConfig`, `PhaseTiming`, `SignalPlan`, `SimulationMetrics`, and HCM Level of Service (`LOS A–F`).
+- `baseline.py`: Deterministic un-actuated fixed-time baseline distributing green time equally across all configured phases with exact cycle length and clearance preservation.
+- `optimizer.py`: 3 explainable algorithms:
+  1. **Demand-Proportional Green Split**: Allocates green time in proportion to critical approach flow ratios $y_i = q_i / S_i$.
+  2. **Webster's Minimum-Delay Optimal Cycle & Split**: Computes minimum-delay cycle length $C_0 = \frac{1.5L + 5}{1 - Y}$ and splits green times $g_i = \frac{y_i}{Y}(C_0 - L)$.
+  3. **Constrained Delay Minimization Search**: Bounded parameter search minimizing aggregate intersection delay under strict safety bounds.
+- `objective.py`: Webster delay proxy formula ($d = d_1 + d_2 - d_3$), Akçelik / HCM oversaturation transition, queue length proxy, capacity throughput, and percentage deltas.
+- `presets.py`: 3 standard intersection topologies (4-Way Standard, 4-Way Dual Lane, 3-Way T-Junction) and 5 demand scenarios (Balanced, NS Rush, EW Surge, Asymmetric Bottleneck, Night Low-Volume).
+- `data_bridge.py`: Bridges persisted `AnalysisSession` metrics to intersection approaches with 4-way provenance tagging (`real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, `synthetic_fixture`) and transparent synthetic expansion for unobserved approaches.
+- `engine.py`: `SignalSimulationEngine` orchestrating baseline computation, optimization, delta comparison, explainability notes generation, and DB run persistence.
 
 ## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
 

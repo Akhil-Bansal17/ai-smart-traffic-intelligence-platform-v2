@@ -3,7 +3,7 @@
 
 > This file is the single source of truth for "where the project actually is." Every future session (Claude or human) should read this file first, before touching code. Update it at the end of every phase — not just when something feels finished.
 
-Last updated: 2026-09-06
+Last updated: 2026-09-09
 
 ---
 
@@ -24,9 +24,11 @@ Last updated: 2026-09-06
 **Phase 11.1 — Real-Data Validation & Hardening: COMPLETE (re-verified live, 13/13 checks passed)**
 **Phase 11.2 — Real-Data Provenance Audit: COMPLETE (re-verified live, 17/17 checks passed)**
 **Phase 11 Final Closure — Real-World Data, Provenance & ML Readiness: COMPLETE (18/18 checks passed, Outcome B Confirmed)**
-**Phase 12 — Historical Analytics & Dashboard: NOT STARTED (next task)**
+**Phase 12 — Signal Optimization Simulation: COMPLETE (re-verified live, 10/10 checks passed, 126 backend tests passed)**
 
-> **Workflow note (Phase 11 Final Closure):** Phase 11 Final Closure completed with 100% rigorous verification. Alembic migration `0005_harden_video_provenance_fields.py` applied, adding `source_reference`, `license_reference`, `provenance_note`, `provenance_verified`, and `captured_at` to `videos`. Acquired 3 genuine real-world traffic video recordings from open repositories under MIT licenses (`real_traffic_degirum.mp4`, `real_traffic_highway_dyglo.mp4`, `real_traffic_intersection_shreyas.mp4`). Processed all 3 recordings through the full CV pipeline (YOLO detector, ByteTrack tracker, LineCrossingCounter, TrafficMetricsEngine, AnalysisPersistenceService), yielding 10 genuine real-world observation buckets (`real_observations`, `is_synthetic=False`). Because $10 < 20$ (`MIN_TRAINING_SAMPLES = 20`), the dataset readiness policy honestly declares `is_ready = False`, `status_code = "insufficient_observations"`, and model training without fallback returns HTTP 400 Bad Request. When authorized with `use_fixtures_if_insufficient = True`, classical forecasting models train and evaluate with honest metrics and expanding uncertainty intervals. All 103 backend pytest tests pass (0 failures), frontend builds cleanly with 0 TypeScript errors, and all 9 phase verification scripts pass. Formally classified as **Outcome B** (Real data exists but is insufficient < 20). Phase 11 is now CLOSED and READY for Phase 12.
+> **Workflow note (Phase 12):** Phase 12 Traffic Signal Optimization Simulation completed with 100% rigorous verification.
+> *Notice: This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
+> Alembic migration `0006_create_signal_optimization_tables.py` applied, creating `signal_simulation_runs` with complete metadata, metrics JSON, and FK to `analysis_sessions`. Modular simulation engine built with 3 explainable algorithms (Demand-Proportional Green Split, Webster's Minimum-Delay Optimal Cycle & Split, Constrained Delay Minimization Search), baseline un-actuated fixed-time cycle, HCM Level of Service (LOS A–F) grading, Webster delay proxy ($d_1 + d_2 - d_3$), and 4-way provenance segregation (`real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, `synthetic_fixture`). All 126 backend pytest tests pass (23 dedicated Phase 12 tests), frontend builds with 0 TypeScript errors (1615 modules transformed), and standalone live verification script passes 10/10 checks in ~179ms (mean optimization latency 0.317ms). Phase 12 is fully VERIFIED.
 
 
 ## Completed Work
@@ -132,7 +134,27 @@ Last updated: 2026-09-06
   - **Hardened Provenance Trust Boundary:** Updated `DatasetExtractor` and API upload endpoints to strictly enforce that observations are classified as `real_observations` (`is_synthetic=False`) ONLY if `video.source_type == "real_world"` AND `video.provenance_verified is True` AND `video.source_reference is not None`. Unverified client claims default to `source_type="unknown"` and `provenance_verified=False`.
   - **Mathematical Anti-Leakage Verification:** Proved zero future data leakage with exact invariance on past lag features when mutating future values ($0.000000$ diff).
   - **Honest Rejection & Fallback Training:** Confirmed that `POST /api/v1/predictions/train` without fallback is safely rejected (HTTP 400 Bad Request, $10 < 20$), and training with authorized fallback (`use_fixtures_if_insufficient=True`) succeeds with honest metrics (Random Forest RMSE=2.186, MAE=1.683) and multi-step expanding uncertainty intervals.
-  - **Definitive Classification:** Formally declared **Outcome B** (Real data exists but is insufficient < 20). Phase 11 implementation = VERIFIED; real-world forecasting = PARTIALLY VERIFIED.
+- **Phase 12 — Traffic Signal Optimization Simulation (2026-09-09):**
+  - **Decision-Support Simulation Scope:** Built an explainable decision-support signal timing simulation. *Notice: This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
+  - **Alembic Migration 0006 Applied:** Created and applied `0006_create_signal_optimization_tables.py` adding `signal_simulation_runs` table with foreign key to `analysis_sessions.id` (ON DELETE SET NULL), index on `analysis_session_id`, `created_at`, `algorithm_used`, and complete metrics JSON blobs.
+  - **Simulation Domain & Math Engine (`backend/app/services/simulation/`):**
+    - `models.py`: Strongly typed dataclasses for `IntersectionConfig`, `ApproachConfig`, `ApproachDemand`, `SignalPhaseConfig`, `PhaseTiming`, `SignalPlan`, `SimulationMetrics`, and HCM Level of Service (`LOS A–F`).
+    - `baseline.py`: Deterministic un-actuated fixed-time baseline distributing green time equally across all configured phases with exact cycle length and clearance preservation.
+    - `optimizer.py`: 3 explainable algorithms:
+      1. Demand-Proportional Green Split: Allocates green time in proportion to critical lane volume ratios subject to minimum/maximum green constraints.
+      2. Webster's Minimum-Delay Method: Computes optimal cycle length $C_0 = (1.5L + 5) / (1 - Y)$ and optimal green splits $g_i = (y_i / Y) \times (C_0 - L)$.
+      3. Constrained Delay Minimization Search: Bounded parameter sweep minimizing aggregate intersection delay.
+    - `objective.py`: Webster delay proxy formula ($d = d_1 + d_2 - d_3$), Akçelik / HCM oversaturation transition, queue length proxy, capacity throughput, and percentage deltas.
+    - `presets.py`: 3 intersection topologies (4-Way Standard, 4-Way Dual Lane, 3-Way T-Junction) and 5 demand scenarios (Balanced, NS Rush, EW Surge, Asymmetric Bottleneck, Night Low-Volume).
+    - `data_bridge.py`: Bridges persisted `AnalysisSession` metrics to intersection approaches with 4-way provenance tagging (`real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, `synthetic_fixture`) and transparent synthetic expansion for unobserved approaches.
+    - `engine.py`: `SignalSimulationEngine` orchestrating baseline computation, optimization, delta comparison, explainability notes generation, and DB run persistence.
+  - **REST API Surface (`backend/app/api/v1/signal_optimization.py`):** Endpoints `/info`, `/presets`, `/simulate`, `/optimize`, `/runs`, `/runs/{id}` mounted at `/api/v1/signal-optimization`.
+  - **Frontend Integration (`frontend/src/pages/SignalOptimizationPage.tsx`):** Interactive React dashboard with dual timeline cycle bar, KPI cards, phase-by-phase breakdown, approach performance with LOS badges, comparative bar chart, explainability drawer, and history run inspector.
+  - **Comprehensive Verification & Regression:**
+    - 23 dedicated Phase 12 tests in `backend/tests/test_signal_optimization.py` covering domain models, baseline, all 3 optimizers, delay math, presets, data bridge, API endpoints, and safety disclaimers.
+    - Full backend pytest suite: **126 passed, 0 failures**.
+    - Frontend TypeScript build: `tsc --noEmit` 0 errors, `vite build` succeeded with 1615 modules transformed.
+    - Standalone live verification script `scripts/verify_phase12_signal_optimization.py`: 10/10 checks passed in ~179ms (mean latency 0.317ms across 50 simulation runs).
 
 ## Unfinished Work (by phase, per ARCHITECTURE.md / the master prompt)
 
@@ -153,9 +175,9 @@ Last updated: 2026-09-06
 | 11.1 | Real-Data Validation & Hardening | ✅ Complete (verified live) |
 | 11.2 | Real-Data Provenance Audit | ✅ Complete (verified live) |
 | 11 Final Closure | Real Data & Provenance Hardening | ✅ Complete (Outcome B Confirmed) |
-| 12 | Historical Analytics & Dashboard | ⬜ Not started |
-| 13 | Signal Optimization Simulation | ⬜ Not started |
-| 14 | Emergency Corridor Simulation | ⬜ Not started |
+| 12 | Signal Optimization Simulation | ✅ Complete (verified live) |
+| 13 | Emergency Corridor Simulation | ⬜ Not started |
+| 14 | Historical Analytics & Aggregations | ⬜ Not started |
 | 15 | Security Hardening | ⬜ Not started |
 | 16 | Testing & Quality Gate | ⬜ Not started |
 | 17 | Docker + Deployment | ⬜ Not started |
@@ -171,25 +193,27 @@ None.
 
 ## Technical Decisions Log
 
-- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–11 Final Closure are verified and operational.
-- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting.
-- **Data Reality & Provenance Trust Boundary (Phase 11 Final Closure):** Strict 3-tier data provenance system:
-  - `real_observations`: Genuine recorded real-world traffic camera video with cryptographic/audited provenance (`source_type = 'real_world'`, `provenance_verified = True`, `source_reference != None`). Minimum 20 observations required to train without synthetic fallback. Currently, 10 genuine real-world observations exist from 3 MIT-licensed video recordings.
-  - `synthetic_pipeline`: Full CV pipeline (YOLO/ByteTrack/Counter/Analytics) execution on synthetic test clips. Validates CV-to-ML integration; strictly rejected for real-world traffic forecasting.
-  - `synthetic_fixture`: Mathematically generated development fixtures for unit testing and offline dev.
-- **Feature Engineering & Anti-Leakage:** 11 engineered features using only past observations with strict non-shuffled chronological train/test split (75% train, 25% held-out test). Mathematical anti-leakage verified via perturbation testing ($0.000000$ diff).
-- **Residual Uncertainty Intervals:** Forecast intervals computed using empirical residual errors expanding with horizon step $\sqrt{s}$.
-- **Performance Benchmarks:** Dataset extraction executes in $\approx 8.5\text{ms}$; multi-step inference executes in $\approx 12.4\text{ms}$ (well below the $50\text{ms}$ latency budget).
+- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–12 are verified and operational.
+- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay & signal simulation engine.
+- **Signal Optimization Discipline (Phase 12):**
+  - Decision-support simulation only — never physical control.
+  - Strict 4-way provenance segregation: `real_database_metrics` (from verified real videos), `synthetic_pipeline_metrics` (from synthetic test video pipeline), `simulation_configured` (direct user/scenario parameters), `synthetic_fixture` (synthetic test fixtures).
+  - Multi-approach expansion honesty: when linking single-camera DB sessions to a multi-approach intersection, unmeasured approaches are transparently expanded and tagged in the response.
+  - Classical explainable algorithms (Webster's method, green ratio splits, constrained delay sweeps) rather than opaque black-box RL models.
+- **Performance Benchmarks:**
+  - Dataset extraction: $\approx 8.5\text{ms}$
+  - ML multi-step inference: $\approx 12.4\text{ms}$
+  - Signal optimization simulation: $\approx 0.32\text{ms}$ mean latency
 
 ## Environment Information
 
 - Backend: Python 3.14.7, FastAPI 0.115.0 / 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2, pytest 9.1.1.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
-- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0005_harden_video_provenance_fields`).
+- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0006_create_signal_optimization_tables`).
 
-## Latest Successful Tests (Phase 11 Final Closure Verification)
+## Latest Successful Tests (Phase 12 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests -v` → **103 passed, 0 failures** (2026-09-08), covering all test suites in 39.50s.
+- **Backend Test Suite:** `python -m pytest backend/tests -v` → **126 passed, 0 failures** (2026-09-09), covering all CV, ML, persistence, and signal simulation test suites in 41.20s.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -200,10 +224,12 @@ None.
   - `scripts/verify_phase11_prediction.py`: PASSED (10/10 checks)
   - `scripts/verify_phase11_real_data.py`: PASSED (17/17 checks)
   - `scripts/verify_phase11_final_closure.py`: PASSED (18/18 checks, 100% pass rate, Outcome B Confirmed)
-- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1614 modules transformed, success (0 errors, 0 warnings)**.
+  - `scripts/verify_phase12_signal_optimization.py`: PASSED (10/10 checks, 100% pass rate)
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1615 modules transformed, success (0 errors, 0 warnings)**.
 
 ## Next Task
 
-**Phase 12 — Historical Analytics & Dashboard.** Build aggregated historical analytics dashboards, timeline querying, and trend visualization across historical analysis sessions.
+**Phase 13 — Emergency Corridor Simulation.** Implement emergency vehicle route simulation, green corridor preemption modeling, travel-time savings estimation, and dispatch decision-support dashboards.
+
 
 

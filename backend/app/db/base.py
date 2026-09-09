@@ -13,6 +13,7 @@ from app.models.prediction import (  # noqa: F401
     PredictionItem,
     PredictionRun,
 )
+from app.models.simulation import SignalSimulationRun  # noqa: F401
 from app.models.video import Video  # noqa: F401
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "CrossingEventRecord",
     "PredictionRun",
     "PredictionItem",
+    "SignalSimulationRun",
 ]

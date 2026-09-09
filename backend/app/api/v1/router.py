@@ -14,6 +14,7 @@ from app.api.v1 import (
     health,
     lane_analysis,
     predictions,
+    signal_optimization,
     tracking,
     videos,
 )
@@ -28,3 +29,4 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(lane_analysis.router, prefix="/lane-analysis", tags=["lane-analysis"])
 api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 api_router.include_router(predictions.router, prefix="/predictions", tags=["predictions"])
+api_router.include_router(signal_optimization.router, prefix="/signal-optimization", tags=["signal-optimization"])
