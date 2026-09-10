@@ -9,6 +9,7 @@ from app.models.analysis import (  # noqa: F401
     LaneResultRecord,
     TrafficMetricsRecord,
 )
+from app.models.corridor_simulation import EmergencyCorridorSimulationRun  # noqa: F401
 from app.models.prediction import (  # noqa: F401
     PredictionItem,
     PredictionRun,
@@ -26,4 +27,6 @@ __all__ = [
     "PredictionRun",
     "PredictionItem",
     "SignalSimulationRun",
+    "EmergencyCorridorSimulationRun",
 ]
+

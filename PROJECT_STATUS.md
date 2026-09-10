@@ -25,10 +25,12 @@ Last updated: 2026-09-09
 **Phase 11.2 — Real-Data Provenance Audit: COMPLETE (re-verified live, 17/17 checks passed)**
 **Phase 11 Final Closure — Real-World Data, Provenance & ML Readiness: COMPLETE (18/18 checks passed, Outcome B Confirmed)**
 **Phase 12 — Signal Optimization Simulation: COMPLETE (re-verified live, 10/10 checks passed, 126 backend tests passed)**
+**Phase 13 — Emergency Corridor Simulation: COMPLETE (re-verified live, 10/10 checks passed, 141 backend tests passed)**
 
-> **Workflow note (Phase 12):** Phase 12 Traffic Signal Optimization Simulation completed with 100% rigorous verification.
-> *Notice: This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
-> Alembic migration `0006_create_signal_optimization_tables.py` applied, creating `signal_simulation_runs` with complete metadata, metrics JSON, and FK to `analysis_sessions`. Modular simulation engine built with 3 explainable algorithms (Demand-Proportional Green Split, Webster's Minimum-Delay Optimal Cycle & Split, Constrained Delay Minimization Search), baseline un-actuated fixed-time cycle, HCM Level of Service (LOS A–F) grading, Webster delay proxy ($d_1 + d_2 - d_3$), and 4-way provenance segregation (`real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, `synthetic_fixture`). All 126 backend pytest tests pass (23 dedicated Phase 12 tests), frontend builds with 0 TypeScript errors (1615 modules transformed), and standalone live verification script passes 10/10 checks in ~179ms (mean optimization latency 0.317ms). Phase 12 is fully VERIFIED.
+> **Workflow note (Phase 13):** Phase 13 Emergency Corridor Simulation & Signal Priority completed with 100% rigorous verification.
+> *Notice: This system provides emergency corridor simulation and decision support; it does not control physical traffic signals, emergency vehicles, or emergency infrastructure.*
+> Alembic migration `0007_create_emergency_corridor_tables.py` applied, creating `emergency_corridor_simulations` table with complete metadata, metrics JSON, node timelines, and FK to `analysis_sessions`. Modular multi-intersection corridor engine built with queue clearance lead-time ($t_{\text{lead}}$), progression-based signal priority (Green Extension & Early Green / Red Truncation), strict non-negotiable safety constraints ($g_{\text{min}}$, yellow/all-red clearance, non-conflicting green, max priority cap), phase-safe recovery compensation, authentic trade-off analysis (emergency corridor transit time savings vs cross-street delay penalty), and strict 4-way provenance segregation. All 141 backend pytest tests pass (15 dedicated Phase 13 tests), frontend builds with 0 TypeScript errors (1616 modules transformed), and standalone live verification script passes 10/10 checks in ~93ms (mean simulation latency 0.182ms). Phase 13 is fully VERIFIED.
+
 
 
 ## Completed Work
@@ -150,11 +152,20 @@ Last updated: 2026-09-09
     - `engine.py`: `SignalSimulationEngine` orchestrating baseline computation, optimization, delta comparison, explainability notes generation, and DB run persistence.
   - **REST API Surface (`backend/app/api/v1/signal_optimization.py`):** Endpoints `/info`, `/presets`, `/simulate`, `/optimize`, `/runs`, `/runs/{id}` mounted at `/api/v1/signal-optimization`.
   - **Frontend Integration (`frontend/src/pages/SignalOptimizationPage.tsx`):** Interactive React dashboard with dual timeline cycle bar, KPI cards, phase-by-phase breakdown, approach performance with LOS badges, comparative bar chart, explainability drawer, and history run inspector.
-  - **Comprehensive Verification & Regression:**
-    - 23 dedicated Phase 12 tests in `backend/tests/test_signal_optimization.py` covering domain models, baseline, all 3 optimizers, delay math, presets, data bridge, API endpoints, and safety disclaimers.
-    - Full backend pytest suite: **126 passed, 0 failures**.
-    - Frontend TypeScript build: `tsc --noEmit` 0 errors, `vite build` succeeded with 1615 modules transformed.
-    - Standalone live verification script `scripts/verify_phase12_signal_optimization.py`: 10/10 checks passed in ~179ms (mean latency 0.317ms across 50 simulation runs).
+- **Emergency Corridor Simulation & Signal Priority implemented and verified live (Phase 13):**
+  - **Domain & Strategy Layer (`backend/app/services/corridor/`):**
+    - `models.py`: Comprehensive domain models (`CorridorNodeConfig`, `EmergencyVehicleConfig`, `CorridorConfig`, `PriorityWindow`, `NodeSimulationTimeline`, `CorridorPerformanceMetrics`, `CorridorSimulationResult`).
+    - `strategy.py`: `SignalPriorityStrategyEngine` modeling queue clearance lead-time ($t_{\text{lead}} = Q \times h_d + 2$s), green extension, early green / red truncation, strict non-negotiable safety constraints ($g_{\text{min}} \ge 7$s, yellow clearance $\ge 3$s, all-red clearance $\ge 1$s, non-conflicting green enforcement, max priority cap $\le 80$s), and phase-safe recovery compensation.
+    - `engine.py`: `EmergencyCorridorSimulationEngine` running baseline vs coordinated progression priority simulations across multi-intersection arterial corridors with timeline generation and authentic Webster/HCM cross-street delay trade-off evaluation.
+    - `presets.py`: 3 arterial corridor topologies (3-node Medical Emergency Arterial, 4-node Downtown Fire Response Corridor, 2-node Express Police Bypass) and 3 emergency vehicle scenarios (Ambulance, Fire Engine, Police Interceptor).
+    - `data_bridge.py`: `CorridorDataBridge` linking recorded database sessions to corridor nodes with strict 4-way provenance segregation.
+  - **Database Persistence & Migration:**
+    - SQLAlchemy model `EmergencyCorridorSimulationRun` in `backend/app/models/corridor_simulation.py` mapped to `emergency_corridor_simulations`.
+    - Migration `0007_create_emergency_corridor_tables.py` created and tested bidirectionally with Alembic.
+  - **REST API Layer (`backend/app/api/v1/emergency_corridor.py`):**
+    - Endpoints `GET /info`, `GET /presets`, `POST /simulate`, `GET /runs`, `GET /runs/{id}`, `DELETE /runs/{id}` mounted at `/api/v1/emergency-corridor`.
+  - **Frontend Integration (`frontend/src/pages/EmergencySimulationPage.tsx`):**
+    - Interactive React dashboard with corridor visualizer, multi-intersection timeline, Gantt signal cycle chart, baseline vs priority KPI cards, trade-off analysis, and historical run manager.
 
 ## Unfinished Work (by phase, per ARCHITECTURE.md / the master prompt)
 
@@ -176,7 +187,7 @@ Last updated: 2026-09-09
 | 11.2 | Real-Data Provenance Audit | ✅ Complete (verified live) |
 | 11 Final Closure | Real Data & Provenance Hardening | ✅ Complete (Outcome B Confirmed) |
 | 12 | Signal Optimization Simulation | ✅ Complete (verified live) |
-| 13 | Emergency Corridor Simulation | ⬜ Not started |
+| 13 | Emergency Corridor Simulation | ✅ Complete (verified live) |
 | 14 | Historical Analytics & Aggregations | ⬜ Not started |
 | 15 | Security Hardening | ⬜ Not started |
 | 16 | Testing & Quality Gate | ⬜ Not started |
@@ -193,27 +204,29 @@ None.
 
 ## Technical Decisions Log
 
-- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–12 are verified and operational.
-- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay & signal simulation engine.
-- **Signal Optimization Discipline (Phase 12):**
+- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–13 are verified and operational.
+- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay, signal simulation, and coordinated emergency corridor progression engine.
+- **Signal Optimization & Emergency Corridor Discipline (Phases 12 & 13):**
   - Decision-support simulation only — never physical control.
   - Strict 4-way provenance segregation: `real_database_metrics` (from verified real videos), `synthetic_pipeline_metrics` (from synthetic test video pipeline), `simulation_configured` (direct user/scenario parameters), `synthetic_fixture` (synthetic test fixtures).
   - Multi-approach expansion honesty: when linking single-camera DB sessions to a multi-approach intersection, unmeasured approaches are transparently expanded and tagged in the response.
-  - Classical explainable algorithms (Webster's method, green ratio splits, constrained delay sweeps) rather than opaque black-box RL models.
+  - Strict safety constraints: $g_{\text{min}} \ge 7$s, yellow clearance $\ge 3$s, all-red clearance $\ge 1$s, max priority cap $\le 80$s, and conflict-free phase transitions.
+  - Realistic trade-off modeling: emergency vehicle progression travel time reduction is explicitly contrasted with non-priority cross-street queue growth and delay penalties.
 - **Performance Benchmarks:**
   - Dataset extraction: $\approx 8.5\text{ms}$
   - ML multi-step inference: $\approx 12.4\text{ms}$
   - Signal optimization simulation: $\approx 0.32\text{ms}$ mean latency
+  - Emergency corridor simulation: $\approx 0.18\text{ms}$ mean latency
 
 ## Environment Information
 
 - Backend: Python 3.14.7, FastAPI 0.115.0 / 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2, pytest 9.1.1.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
-- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0006_create_signal_optimization_tables`).
+- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0007_create_emergency_corridor_tables`).
 
-## Latest Successful Tests (Phase 12 Verification)
+## Latest Successful Tests (Phase 13 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests -v` → **126 passed, 0 failures** (2026-09-09), covering all CV, ML, persistence, and signal simulation test suites in 41.20s.
+- **Backend Test Suite:** `python -m pytest backend/tests -v` → **141 passed, 0 failures** (2026-09-10), covering all CV, ML, persistence, signal simulation, and emergency corridor test suites in 17.03s.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -225,11 +238,12 @@ None.
   - `scripts/verify_phase11_real_data.py`: PASSED (17/17 checks)
   - `scripts/verify_phase11_final_closure.py`: PASSED (18/18 checks, 100% pass rate, Outcome B Confirmed)
   - `scripts/verify_phase12_signal_optimization.py`: PASSED (10/10 checks, 100% pass rate)
-- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1615 modules transformed, success (0 errors, 0 warnings)**.
+  - `scripts/verify_phase13_emergency_corridor.py`: PASSED (10/10 checks, 100% pass rate)
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1616 modules transformed, success (0 errors, 0 warnings)**.
 
 ## Next Task
 
-**Phase 13 — Emergency Corridor Simulation.** Implement emergency vehicle route simulation, green corridor preemption modeling, travel-time savings estimation, and dispatch decision-support dashboards.
+**Phase 14 — Historical Analytics & Aggregations.** Implement multi-session historical trend analysis, hourly/daily traffic patterns, aggregated peak-hour reporting, export capabilities, and analytical rollup dashboards.
 
 
 

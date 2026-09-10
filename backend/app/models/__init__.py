@@ -4,6 +4,7 @@ from app.models.analysis import (
     LaneResultRecord,
     TrafficMetricsRecord,
 )
+from app.models.corridor_simulation import EmergencyCorridorSimulationRun
 from app.models.prediction import (
     PredictionItem,
     PredictionRun,
@@ -20,4 +21,6 @@ __all__ = [
     "PredictionRun",
     "PredictionItem",
     "SignalSimulationRun",
+    "EmergencyCorridorSimulationRun",
 ]
+

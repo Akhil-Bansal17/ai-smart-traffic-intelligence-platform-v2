@@ -11,6 +11,7 @@ from app.api.v1 import (
     analytics,
     counting,
     detection,
+    emergency_corridor,
     health,
     lane_analysis,
     predictions,
@@ -30,3 +31,5 @@ api_router.include_router(lane_analysis.router, prefix="/lane-analysis", tags=["
 api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 api_router.include_router(predictions.router, prefix="/predictions", tags=["predictions"])
 api_router.include_router(signal_optimization.router, prefix="/signal-optimization", tags=["signal-optimization"])
+api_router.include_router(emergency_corridor.router, prefix="/emergency-corridor", tags=["emergency-corridor"])
+

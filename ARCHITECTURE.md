@@ -1,9 +1,9 @@
 # ARCHITECTURE.md
 ## AI Smart Traffic Intelligence Platform
 
-Status: **Phases 1–12 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+Status: **Phases 1–13 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
 
-> **Decision Support Disclaimer:** *This system provides traffic signal optimization simulation and decision support; it does not directly control physical traffic signals.*
+> **Decision Support Disclaimer:** *This system provides traffic signal optimization and emergency corridor simulation for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
 
 ---
 
@@ -273,9 +273,42 @@ Schema managed via Alembic migrations (`0001` through `0005_harden_video_provena
 - `approach_performance_snapshot` (JSON, nullable)
 - `created_at` (DateTime(timezone=True), not null, indexed)
 
-Planned Future Entities (Phases 13–16):
+**emergency_corridor_simulations** (Phase 13)
+- `id` (String(36) UUID, PK)
+- `session_id` (String(36), FK `analysis_sessions.id` ON DELETE SET NULL, nullable, indexed)
+- `corridor_id` (String(64), not null)
+- `corridor_name` (String(128), not null)
+- `total_distance_meters` (Float, not null, default 0.0)
+- `node_count` (Integer, not null, default 0)
+- `vehicle_type` (String(32), not null) — `ambulance`, `fire_engine`, `police_interceptor`
+- `desired_speed_kmh` (Float, not null, default 60.0)
+- `priority_strategy` (String(64), not null, default 'dynamic_progression')
+- `data_source` (String(64), not null) — strictly labeled: `real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, or `synthetic_fixture`
+- `baseline_travel_time_seconds` (Float, not null, default 0.0)
+- `priority_travel_time_seconds` (Float, not null, default 0.0)
+- `travel_time_savings_seconds` (Float, not null, default 0.0)
+- `travel_time_savings_pct` (Float, not null, default 0.0)
+- `baseline_corridor_speed_kmh` (Float, not null, default 0.0)
+- `priority_corridor_speed_kmh` (Float, not null, default 0.0)
+- `total_signals_encountered` (Integer, not null, default 0)
+- `green_lights_passed` (Integer, not null, default 0)
+- `total_stops_baseline` (Integer, not null, default 0)
+- `total_stops_priority` (Integer, not null, default 0)
+- `stops_reduced` (Integer, not null, default 0)
+- `cross_street_extra_delay_sec` (Float, not null, default 0.0)
+- `recovery_time_seconds` (Float, not null, default 0.0)
+- `corridor_config_snapshot` (JSON, nullable)
+- `vehicle_config_snapshot` (JSON, nullable)
+- `node_timelines_snapshot` (JSON, nullable)
+- `performance_metrics_snapshot` (JSON, nullable)
+- `safety_validation_flags` (JSON, nullable)
+- `simulation_notes` (Text, nullable)
+- `is_simulation` (Boolean, not null, default True)
+- `created_at` (DateTime(timezone=True), not null, indexed)
+
+Planned Future Entities (Phases 14–16):
 - `users` (auth, roles)
-- `emergency_events` (emergency vehicle priority logs)
+- `historical_aggregations` (rollups, trends)
 
 Indexes on all foreign keys and temporal attributes ensure fast historical filtering and dashboard aggregations. All child tables employ `ON DELETE CASCADE` (or `ON DELETE SET NULL` for decoupled simulation runs) to guarantee clean relational lifecycle management.
 
@@ -296,6 +329,30 @@ The Signal Optimization Simulation module is a decision-support and traffic-engi
 - `presets.py`: 3 standard intersection topologies (4-Way Standard, 4-Way Dual Lane, 3-Way T-Junction) and 5 demand scenarios (Balanced, NS Rush, EW Surge, Asymmetric Bottleneck, Night Low-Volume).
 - `data_bridge.py`: Bridges persisted `AnalysisSession` metrics to intersection approaches with 4-way provenance tagging (`real_database_metrics`, `synthetic_pipeline_metrics`, `simulation_configured`, `synthetic_fixture`) and transparent synthetic expansion for unobserved approaches.
 - `engine.py`: `SignalSimulationEngine` orchestrating baseline computation, optimization, delta comparison, explainability notes generation, and DB run persistence.
+
+## 8.2. Emergency Corridor Simulation & Signal Priority Architecture (Phase 13)
+
+The Emergency Corridor Simulation module models coordinated arterial signal progression, green wave preemption, and queue clearance for emergency response vehicles across multi-intersection corridors.
+
+> **Operational Scope Disclaimer:** *This system provides emergency corridor simulation and decision support; it does not control physical traffic signals, emergency vehicles, or emergency infrastructure.*
+
+### Components (`backend/app/services/corridor/`):
+- `models.py`: Strongly typed dataclasses for `CorridorNodeConfig`, `EmergencyVehicleConfig`, `CorridorConfig`, `PriorityWindow`, `NodeSimulationTimeline`, `CorridorPerformanceMetrics`, and `CorridorSimulationResult`.
+- `strategy.py`: `SignalPriorityStrategyEngine` modeling:
+  - **Queue Clearance Lead-Time**: $t_{\text{lead}} = Q \times h_d + 2.0\text{s}$, clearing standing queues prior to EV arrival.
+  - **Progression Wave**: Computes dynamic ETA at each node $i$: $t_{\text{arrival}, i} = t_{\text{arrival}, i-1} + \frac{d_{i-1, i}}{v_{\text{cruise}}} + \Delta t_{\text{delay}}$.
+  - **Priority Window Calculation**: Strategy determines whether green extension, early green / red truncation, or full preemption is required.
+  - **Strict Safety Constraint Enforcement**:
+    - Minimum green constraint: $g_{\text{min}} \ge 7.0\text{s}$ for all phases.
+    - Yellow clearance interval: $y \ge 3.0\text{s}$.
+    - All-red clearance interval: $r_{\text{all}} \ge 1.0\text{s}$.
+    - Maximum priority hold cap: $\le 80.0\text{s}$ to prevent endless arterial starvation.
+    - Conflict-free phase transition: cross-street phases must clear safely before emergency green is served.
+  - **Phase-Safe Recovery Compensation**: Post-priority cycle compensates cross-street phases truncated during priority window.
+- `engine.py`: `EmergencyCorridorSimulationEngine` running multi-node baseline and priority timeline progression, calculating EV transit delays, cross-street penalty delays, and storing simulation results.
+- `presets.py`: 3 corridor presets (3-node Medical Emergency Arterial, 4-node Downtown Fire Response Corridor, 2-node Express Police Bypass) and 3 vehicle presets (Ambulance, Fire Engine, Police Interceptor).
+- `data_bridge.py`: `CorridorDataBridge` bridging live/recorded database sessions to corridor nodes with strict provenance segregation.
+- `corridor_simulation.py`: SQLAlchemy ORM entity `EmergencyCorridorSimulationRun` and Alembic migration `0007_create_emergency_corridor_tables.py`.
 
 ## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
 
