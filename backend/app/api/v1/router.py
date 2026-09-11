@@ -10,6 +10,7 @@ from app.api.v1 import (
     analysis,
     analytics,
     counting,
+    dashboard,
     detection,
     emergency_corridor,
     health,
@@ -32,4 +33,6 @@ api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"]
 api_router.include_router(predictions.router, prefix="/predictions", tags=["predictions"])
 api_router.include_router(signal_optimization.router, prefix="/signal-optimization", tags=["signal-optimization"])
 api_router.include_router(emergency_corridor.router, prefix="/emergency-corridor", tags=["emergency-corridor"])
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+
 

@@ -10,4 +10,5 @@ export * from './analysis';
 export * from './predictions';
 export * from './signalOptimization';
 export * from './emergencyCorridor';
+export * from './dashboard';
 

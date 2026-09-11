@@ -26,10 +26,12 @@ Last updated: 2026-09-09
 **Phase 11 Final Closure — Real-World Data, Provenance & ML Readiness: COMPLETE (18/18 checks passed, Outcome B Confirmed)**
 **Phase 12 — Signal Optimization Simulation: COMPLETE (re-verified live, 10/10 checks passed, 126 backend tests passed)**
 **Phase 13 — Emergency Corridor Simulation: COMPLETE (re-verified live, 10/10 checks passed, 141 backend tests passed)**
+**Phase 14 — System-Wide Traffic Intelligence & Decision-Support Dashboard: COMPLETE (re-verified live, 11/11 checks passed, 146 backend tests passed)**
 
-> **Workflow note (Phase 13):** Phase 13 Emergency Corridor Simulation & Signal Priority completed with 100% rigorous verification.
-> *Notice: This system provides emergency corridor simulation and decision support; it does not control physical traffic signals, emergency vehicles, or emergency infrastructure.*
-> Alembic migration `0007_create_emergency_corridor_tables.py` applied, creating `emergency_corridor_simulations` table with complete metadata, metrics JSON, node timelines, and FK to `analysis_sessions`. Modular multi-intersection corridor engine built with queue clearance lead-time ($t_{\text{lead}}$), progression-based signal priority (Green Extension & Early Green / Red Truncation), strict non-negotiable safety constraints ($g_{\text{min}}$, yellow/all-red clearance, non-conflicting green, max priority cap), phase-safe recovery compensation, authentic trade-off analysis (emergency corridor transit time savings vs cross-street delay penalty), and strict 4-way provenance segregation. All 141 backend pytest tests pass (15 dedicated Phase 13 tests), frontend builds with 0 TypeScript errors (1616 modules transformed), and standalone live verification script passes 10/10 checks in ~93ms (mean simulation latency 0.182ms). Phase 13 is fully VERIFIED.
+> **Workflow note (Phase 14):** Phase 14 System-Wide Traffic Intelligence & Decision-Support Dashboard completed with 100% rigorous verification.
+> *Strict Read-Only Guarantee: Opening or refreshing the Dashboard never automatically triggers video upload, YOLO inference, tracking, counting, lane analysis, prediction training, signal optimization, or emergency-corridor simulation. The Dashboard is a read/aggregation/presentation layer only.*
+> Built single-roundtrip batched aggregation service `DashboardAggregatorService` (`GET /api/v1/dashboard/summary`, `GET /api/v1/dashboard/info`) with zero N+1 queries. Unified 10 modular sections: (1) System Health & Subsystems Matrix, (2) Traffic Overview (<1hr extrapolation labeled), (3) Vehicle Composition, (4) Discrete Non-Interpolated Flow Time-Series, (5) Lane & Image-Space Density (`vehicles/px²`), (6) Dynamic Prediction Readiness (honestly reporting 10/20 observations), (7) Signal Optimization Simulation results with decision-support disclaimer, (8) Emergency Corridor Simulation results with decision-support disclaimer, (9) Historical Video Analysis Runs with deep links, and (10) Complete Data Provenance & Trust Boundary Panel. All 146 backend pytest tests pass (5 dedicated Phase 14 tests), frontend builds with 0 TypeScript errors (1628 modules transformed), and standalone live verification script passes 11/11 checks (mean summary latency ~57ms). Phase 14 is fully VERIFIED.
+
 
 
 
@@ -188,7 +190,7 @@ Last updated: 2026-09-09
 | 11 Final Closure | Real Data & Provenance Hardening | ✅ Complete (Outcome B Confirmed) |
 | 12 | Signal Optimization Simulation | ✅ Complete (verified live) |
 | 13 | Emergency Corridor Simulation | ✅ Complete (verified live) |
-| 14 | Historical Analytics & Aggregations | ⬜ Not started |
+| 14 | System-Wide Traffic Intelligence Dashboard | ✅ Complete (verified live) |
 | 15 | Security Hardening | ⬜ Not started |
 | 16 | Testing & Quality Gate | ⬜ Not started |
 | 17 | Docker + Deployment | ⬜ Not started |
@@ -224,9 +226,9 @@ None.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
 - Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0007_create_emergency_corridor_tables`).
 
-## Latest Successful Tests (Phase 13 Verification)
+## Latest Successful Tests (Phase 14 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests -v` → **141 passed, 0 failures** (2026-09-10), covering all CV, ML, persistence, signal simulation, and emergency corridor test suites in 17.03s.
+- **Backend Test Suite:** `python -m pytest backend/tests -v` → **146 passed, 0 failures** (2026-09-11), covering all CV, ML, persistence, signal simulation, emergency corridor, and unified dashboard summary test suites in 71.51s.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -239,11 +241,13 @@ None.
   - `scripts/verify_phase11_final_closure.py`: PASSED (18/18 checks, 100% pass rate, Outcome B Confirmed)
   - `scripts/verify_phase12_signal_optimization.py`: PASSED (10/10 checks, 100% pass rate)
   - `scripts/verify_phase13_emergency_corridor.py`: PASSED (10/10 checks, 100% pass rate)
-- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1616 modules transformed, success (0 errors, 0 warnings)**.
+  - `scripts/verify_phase14_dashboard.py`: PASSED (11/11 checks, 100% pass rate, mean server execution 57.11ms)
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1628 modules transformed, success (0 errors, 0 warnings)**.
 
 ## Next Task
 
-**Phase 14 — Historical Analytics & Aggregations.** Implement multi-session historical trend analysis, hourly/daily traffic patterns, aggregated peak-hour reporting, export capabilities, and analytical rollup dashboards.
+**Phase 15 — Security Hardening.** Implement rate limiting, security headers, input sanitization audit, secret management checks, CORS policy review, and automated security test suite.
+
 
 
 
