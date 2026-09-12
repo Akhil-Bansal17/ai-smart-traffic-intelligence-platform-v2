@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     analysis,
     analytics,
+    anomalies,
     counting,
     dashboard,
     detection,
@@ -34,5 +35,6 @@ api_router.include_router(predictions.router, prefix="/predictions", tags=["pred
 api_router.include_router(signal_optimization.router, prefix="/signal-optimization", tags=["signal-optimization"])
 api_router.include_router(emergency_corridor.router, prefix="/emergency-corridor", tags=["emergency-corridor"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(anomalies.router, prefix="/anomalies", tags=["anomalies"])
 
 

@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     counting_line_p2_y: float = 0.5
     counting_min_movement_px: float = 2.0
 
+    # --- Anomaly / Incident Detection (Phase 15) ---
+    anomaly_congestion_occupancy_threshold: int = 5
+    anomaly_congestion_min_duration_seconds: float = 20.0
+    anomaly_congestion_density_score_threshold: float = 0.70
+    anomaly_flow_drop_pct_threshold: float = 50.0
+    anomaly_lane_imbalance_ratio_threshold: float = 3.0
+    anomaly_lane_imbalance_min_volume: int = 5
+    anomaly_density_spike_threshold: float = 0.00035
+    anomaly_min_buckets_for_baseline: int = 2
+
     @property
     def cors_origins(self) -> list[str]:
         """allowed_origins as a parsed list for the CORS middleware."""

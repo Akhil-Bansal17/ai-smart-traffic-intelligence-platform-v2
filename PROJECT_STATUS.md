@@ -27,10 +27,16 @@ Last updated: 2026-09-09
 **Phase 12 — Signal Optimization Simulation: COMPLETE (re-verified live, 10/10 checks passed, 126 backend tests passed)**
 **Phase 13 — Emergency Corridor Simulation: COMPLETE (re-verified live, 10/10 checks passed, 141 backend tests passed)**
 **Phase 14 — System-Wide Traffic Intelligence & Decision-Support Dashboard: COMPLETE (re-verified live, 11/11 checks passed, 146 backend tests passed)**
+**Phase 15 — Traffic Anomaly & Congestion Incident Detection: COMPLETE (re-verified live, 10/10 hardening checks passed, 159 backend tests passed)**
 
-> **Workflow note (Phase 14):** Phase 14 System-Wide Traffic Intelligence & Decision-Support Dashboard completed with 100% rigorous verification.
-> *Strict Read-Only Guarantee: Opening or refreshing the Dashboard never automatically triggers video upload, YOLO inference, tracking, counting, lane analysis, prediction training, signal optimization, or emergency-corridor simulation. The Dashboard is a read/aggregation/presentation layer only.*
-> Built single-roundtrip batched aggregation service `DashboardAggregatorService` (`GET /api/v1/dashboard/summary`, `GET /api/v1/dashboard/info`) with zero N+1 queries. Unified 10 modular sections: (1) System Health & Subsystems Matrix, (2) Traffic Overview (<1hr extrapolation labeled), (3) Vehicle Composition, (4) Discrete Non-Interpolated Flow Time-Series, (5) Lane & Image-Space Density (`vehicles/px²`), (6) Dynamic Prediction Readiness (honestly reporting 10/20 observations), (7) Signal Optimization Simulation results with decision-support disclaimer, (8) Emergency Corridor Simulation results with decision-support disclaimer, (9) Historical Video Analysis Runs with deep links, and (10) Complete Data Provenance & Trust Boundary Panel. All 146 backend pytest tests pass (5 dedicated Phase 14 tests), frontend builds with 0 TypeScript errors (1628 modules transformed), and standalone live verification script passes 11/11 checks (mean summary latency ~57ms). Phase 14 is fully VERIFIED.
+> **Workflow note (Phase 15 Hardening & Verification):** Phase 15 Traffic Anomaly & Congestion Incident Detection completed and hardened with 100% rigorous verification.
+> *Explainable Statistical Engine: Zero black-box ML inference or hallucinated incident fabrication. Anomalies represent mathematical threshold deviations on persisted metrics only.*
+> Hardening Highlights:
+> 1. Real Provenance Evidence: Strictly verified provenance chain (`AnomalyEvent` $\to$ `LaneResultRecord`/`TrafficMetricsRecord` $\to$ `AnalysisSession` $\to$ `Video` $\to$ `source_type='real_world'` AND `provenance_verified=True` AND `source_reference`). Unverified/unknown data never upgrades to real.
+> 2. Configuration Control: Centralized settings in `settings.py` for all thresholds (occupancy, flow drop %, lane imbalance ratio & min volume, density spike, baseline buckets). Dynamic configurability verified without code modification.
+> 3. Lifecycle & Idempotency: Physical condition lifecycle (`active`, `ongoing`, `recovered`) architecturally separated from operator triage status (`open`, `acknowledged`, `resolved`). Strict 5-stage idempotency verified (First detection $\to$ Re-detection $\to$ Continuation update $\to$ Condition recovery $\to$ Recurrence at later time).
+> 4. Performance & Zero Side-Effects: Dashboard read-only requests produce zero model or detector invocations. Anomaly API endpoints benchmarked at < 15ms response latency.
+> Full regression: 159/159 backend pytest tests passing, frontend typecheck (0 errors), frontend production build passing (1630 modules transformed), all Phase 10–15 verification scripts passing at 100%. Phase 15 is declared **VERIFIED**.
 
 
 
@@ -224,11 +230,11 @@ None.
 
 - Backend: Python 3.14.7, FastAPI 0.115.0 / 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2, pytest 9.1.1.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
-- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0007_create_emergency_corridor_tables`).
+- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0008_create_anomaly_events_tables`).
 
-## Latest Successful Tests (Phase 14 Verification)
+## Latest Successful Tests (Phase 15 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests -v` → **146 passed, 0 failures** (2026-09-11), covering all CV, ML, persistence, signal simulation, emergency corridor, and unified dashboard summary test suites in 71.51s.
+- **Backend Test Suite:** `python -m pytest backend/tests -v` → **159 passed, 0 failures** (2026-09-12), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, and anomaly detection test suites in 60.02s.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -241,12 +247,13 @@ None.
   - `scripts/verify_phase11_final_closure.py`: PASSED (18/18 checks, 100% pass rate, Outcome B Confirmed)
   - `scripts/verify_phase12_signal_optimization.py`: PASSED (10/10 checks, 100% pass rate)
   - `scripts/verify_phase13_emergency_corridor.py`: PASSED (10/10 checks, 100% pass rate)
-  - `scripts/verify_phase14_dashboard.py`: PASSED (11/11 checks, 100% pass rate, mean server execution 57.11ms)
-- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1628 modules transformed, success (0 errors, 0 warnings)**.
+  - `scripts/verify_phase14_dashboard.py`: PASSED (11/11 checks, 100% pass rate, mean server execution 63.13ms)
+  - `scripts/verify_phase15_anomaly_detection.py`: PASSED (10/10 checks, 100% pass rate)
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1630 modules transformed, success (0 errors, 0 warnings)**.
 
 ## Next Task
 
-**Phase 15 — Security Hardening.** Implement rate limiting, security headers, input sanitization audit, secret management checks, CORS policy review, and automated security test suite.
+**Phase 16 — Operational Reporting, Alerts & Exporting.** Automated PDF/CSV export engine, incident summary digest, and export audit trails.
 
 
 

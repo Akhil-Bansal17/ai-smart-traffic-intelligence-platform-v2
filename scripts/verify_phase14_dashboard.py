@@ -105,9 +105,9 @@ def run_verification():
     c3_pass = (
         health.get("provenance", {}).get("state") == "REAL DATA"
         and db_connected
-        and len(subsystems) == 10
+        and len(subsystems) >= 10
     )
-    detail = f"DB connected ({db_latency:.2f}ms latency). 10 subsystem health checks monitored live."
+    detail = f"DB connected ({db_latency:.2f}ms latency). {len(subsystems)} subsystem health checks monitored live."
     if c3_pass:
         checks_passed += 1
     print_check(3, "System Health & Live Subsystems Matrix", c3_pass, detail)

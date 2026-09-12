@@ -240,6 +240,13 @@ class DashboardAggregatorService:
                 provenance_type="simulation_only",
                 note="Multi-intersection arterial priority progression simulator",
             ),
+            SubsystemStatusItem(
+                phase=15,
+                name="Anomaly & Incident Detection",
+                status="available",
+                provenance_type="rule_based_events",
+                note="Explainable statistical threshold detector (congestion, flow drop, imbalance, density spike)",
+            ),
         ]
 
         system_health = SystemHealthSection(

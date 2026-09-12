@@ -344,6 +344,15 @@ class AnalysisPersistenceService:
 
             db.commit()
             db.refresh(session)
+
+            # Stage 6: Anomaly & Incident Detection (Phase 15)
+            try:
+                from app.services.anomaly.detector import AnomalyDetectionService
+                anomaly_service = AnomalyDetectionService()
+                anomaly_service.detect_and_persist_for_session(db, session.id)
+            except Exception as anom_err:
+                logger.warning("Anomaly detection hook failed for session %s: %s", session.id, anom_err)
+
             logger.info(
                 "Persisted AnalysisSession %s for video %s: %s vehicles counted, %s frames in %.1fms",
                 session.id,
@@ -353,6 +362,7 @@ class AnalysisPersistenceService:
                 elapsed_ms,
             )
             return session
+
 
         except Exception as err:
             db.rollback()

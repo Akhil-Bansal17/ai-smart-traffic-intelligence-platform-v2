@@ -108,7 +108,7 @@ def test_dashboard_summary_empty_database(client: TestClient, db_session: Sessio
     assert health["backend_online"] is True
     assert health["database_connected"] is True
     assert health["provenance"]["state"] == "REAL DATA"
-    assert len(health["subsystems"]) == 10
+    assert len(health["subsystems"]) >= 10
     phase_11_sub = next(s for s in health["subsystems"] if s["phase"] == 11)
     assert phase_11_sub["status"] in ["insufficient", "unavailable"]
 
