@@ -1,7 +1,8 @@
 """
 Unit and integration tests for Phase 15: Traffic Anomaly & Congestion Incident Detection.
-Covers all 4 statistical detection rules, event lifecycle state tracking, provenance inheritance,
-idempotent re-execution, REST API filtering, status updates, and anti-fabrication policies.
+Covers all 4 statistical detection rules, sustained duration constraints (20s boundary),
+event lifecycle state tracking, provenance inheritance, idempotent re-execution,
+REST API filtering, status updates, and anti-fabrication policies.
 """
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,7 +27,7 @@ def utcnow():
 
 
 # Isolated SQLite test database
-TEST_DB_PATH = Path(tempfile.gettempdir()) / "test_phase15_anomalies.db"
+TEST_DB_PATH = Path(tempfile.gettempdir()) / "test_phase15_anomalies_hardened.db"
 test_engine = create_engine(
     f"sqlite:///{TEST_DB_PATH}",
     connect_args={"check_same_thread": False},
@@ -94,15 +95,16 @@ def test_anomaly_info_endpoint(client: TestClient):
     assert "density_spike" in rule_types
 
 
-def test_detect_congestion_buildup(db_session: Session):
-    """Rule 1: Sustained occupancy above threshold creates congestion buildup event."""
+def test_detect_congestion_buildup_sustained(db_session: Session):
+    """Rule 1: Sustained occupancy above threshold (duration >= 20.0s) creates congestion buildup event."""
     video = Video(
         id="vid_real_001",
-        original_filename="real_traffic_junction.mp4",
+        original_filename="real_traffic_highway_dyglo.mp4",
         storage_path="uploads/vid_real_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Urban DOT Cam 12",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -118,7 +120,16 @@ def test_detect_congestion_buildup(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    # Sustained duration = 25.0s (>= 20.0s threshold)
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_cong_001",
+        total_volume=45,
+        flow_rate_per_minute=108.0,
+        flow_rate_per_hour=6480.0,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     # Lane 1 has peak occupancy 9 and avg 7.2 (exceeding default threshold of 5)
     lane = LaneResultRecord(
@@ -145,11 +156,72 @@ def test_detect_congestion_buildup(db_session: Session):
     assert cong_event.lane_id == "lane_north_01"
     assert cong_event.trigger_value == 9.0
     assert cong_event.threshold_value == 5.0
+    assert cong_event.duration_seconds == 25.0
     assert cong_event.deviation_pct == pytest.approx(80.0, 0.1)
     assert cong_event.severity in ["medium", "high"]
     assert cong_event.is_synthetic is False
     assert cong_event.provenance_category == "real_database_metrics"
     assert "Northbound Lane 1" in cong_event.title
+
+
+def test_congestion_duration_boundary_and_rejection(db_session: Session):
+    """
+    Validates Congestion Buildup sustained duration rule:
+    - Condition met, duration = 15.0s < 20.0s -> 0 events (rejected as transient).
+    - Condition met, duration = 19.99s < 20.0s -> 0 events (rejected just below boundary).
+    - Condition met, duration = 20.0s >= 20.0s -> 1 event (qualifying exact boundary).
+    - Condition met, duration = 30.0s >= 20.0s -> 1 event (qualifying sustained).
+    """
+    video = Video(
+        id="vid_dur_001",
+        original_filename="real_traffic_highway_dyglo.mp4",
+        storage_path="uploads/vid_dur_001.mp4",
+        source_type="real_world",
+        provenance_verified=True,
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
+        status="ready",
+    )
+    db_session.add(video)
+    db_session.commit()
+
+    service = AnomalyDetectionService(congestion_min_duration_seconds=20.0)
+
+    # 1. Transient duration = 15.0s -> 0 events
+    s15 = AnalysisSession(id="s15", video_id="vid_dur_001", status="completed", started_at=utcnow(), completed_at=utcnow())
+    m15 = TrafficMetricsRecord(analysis_session_id="s15", total_volume=20, observation_duration_seconds=15.0)
+    l15 = LaneResultRecord(analysis_session_id="s15", lane_id="l1", lane_name="L1", peak_occupancy=8, average_occupancy=6.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+    db_session.add_all([s15, m15, l15])
+    db_session.commit()
+    assert len(service.detect_for_session(s15)) == 0, "Transient 15s duration must not trigger congestion event"
+
+    # 2. Just below boundary = 19.99s -> 0 events
+    s19 = AnalysisSession(id="s19", video_id="vid_dur_001", status="completed", started_at=utcnow(), completed_at=utcnow())
+    m19 = TrafficMetricsRecord(analysis_session_id="s19", total_volume=20, observation_duration_seconds=19.99)
+    l19 = LaneResultRecord(analysis_session_id="s19", lane_id="l1", lane_name="L1", peak_occupancy=8, average_occupancy=6.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+    db_session.add_all([s19, m19, l19])
+    db_session.commit()
+    assert len(service.detect_for_session(s19)) == 0, "19.99s duration below 20.0s boundary must not trigger congestion event"
+
+    # 3. Exact boundary = 20.0s -> 1 event
+    s20 = AnalysisSession(id="s20", video_id="vid_dur_001", status="completed", started_at=utcnow(), completed_at=utcnow())
+    m20 = TrafficMetricsRecord(analysis_session_id="s20", total_volume=20, observation_duration_seconds=20.0)
+    l20 = LaneResultRecord(analysis_session_id="s20", lane_id="l1", lane_name="L1", peak_occupancy=8, average_occupancy=6.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+    db_session.add_all([s20, m20, l20])
+    db_session.commit()
+    res20 = service.detect_for_session(s20)
+    assert len(res20) == 1, "Exact 20.0s duration must qualify"
+    assert res20[0]["duration_seconds"] == 20.0
+
+    # 4. Sustained = 30.0s -> 1 event
+    s30 = AnalysisSession(id="s30", video_id="vid_dur_001", status="completed", started_at=utcnow(), completed_at=utcnow())
+    m30 = TrafficMetricsRecord(analysis_session_id="s30", total_volume=20, observation_duration_seconds=30.0)
+    l30 = LaneResultRecord(analysis_session_id="s30", lane_id="l1", lane_name="L1", peak_occupancy=8, average_occupancy=6.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+    db_session.add_all([s30, m30, l30])
+    db_session.commit()
+    res30 = service.detect_for_session(s30)
+    assert len(res30) == 1
+    assert res30[0]["duration_seconds"] == 30.0
 
 
 def test_detect_abnormal_flow_drop(db_session: Session):
@@ -213,11 +285,12 @@ def test_detect_lane_imbalance(db_session: Session):
     """Rule 3: Occupancy ratio between max and min lane >= 3.0x triggers lane imbalance."""
     video = Video(
         id="vid_real_002",
-        original_filename="arterial_corridor.mp4",
+        original_filename="real_traffic_highway_dyglo.mp4",
         storage_path="uploads/vid_real_002.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="City DOT Arterial Camera",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -233,7 +306,13 @@ def test_detect_lane_imbalance(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_imbal_001",
+        total_volume=60,
+        observation_duration_seconds=30.0,
+    )
+    db_session.add(metrics)
 
     # Lane 1 unique vehicles: 30, Lane 2 unique vehicles: 5 -> ratio = 6.0x
     l1 = LaneResultRecord(
@@ -294,7 +373,13 @@ def test_detect_density_spike(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_dens_001",
+        total_volume=15,
+        observation_duration_seconds=20.0,
+    )
+    db_session.add(metrics)
 
     # Image-space density: 0.0006 veh/px2 (exceeding default 0.00035)
     lane = LaneResultRecord(
@@ -324,10 +409,12 @@ def test_detector_idempotency_and_continuation(db_session: Session):
     """Running detector multiple times on same session updates rather than duplicates rows."""
     video = Video(
         id="vid_idem_001",
-        original_filename="test_video.mp4",
+        original_filename="real_traffic_highway_dyglo.mp4",
         storage_path="uploads/vid_idem_001.mp4",
         source_type="real_world",
         provenance_verified=True,
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -343,7 +430,13 @@ def test_detector_idempotency_and_continuation(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_idem_001",
+        total_volume=40,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     lane = LaneResultRecord(
         analysis_session_id="sess_idem_001",
@@ -376,11 +469,12 @@ def test_rest_api_events_filter_status_and_delete(client: TestClient, db_session
     """Tests REST API endpoints: GET /events, GET /events/{id}, PATCH /events/{id}/status, DELETE /events/{id}."""
     video = Video(
         id="vid_api_001",
-        original_filename="api_test_feed.mp4",
+        original_filename="real_traffic_highway_dyglo.mp4",
         storage_path="uploads/vid_api_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Traffic Monitoring Cam #4",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -396,7 +490,13 @@ def test_rest_api_events_filter_status_and_delete(client: TestClient, db_session
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_api_001",
+        total_volume=50,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     lane = LaneResultRecord(
         analysis_session_id="sess_api_001",
@@ -431,9 +531,9 @@ def test_rest_api_events_filter_status_and_delete(client: TestClient, db_session
     assert detail_resp.status_code == 200
     detail = detail_resp.json()
     assert detail["video_id"] == "vid_api_001"
-    assert detail["video_filename"] == "api_test_feed.mp4"
+    assert detail["video_filename"] == "real_traffic_highway_dyglo.mp4"
     assert detail["provenance_verified"] is True
-    assert detail["source_reference"] == "Traffic Monitoring Cam #4"
+    assert detail["source_reference"] == "https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4"
 
     # 4. Acknowledge event via PATCH /api/v1/anomalies/events/{id}/status
     patch_resp = client.patch(
@@ -470,7 +570,8 @@ def test_anti_fabrication_empty_session(db_session: Session):
         storage_path="uploads/vid_norm_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Camera 1",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -486,7 +587,13 @@ def test_anti_fabrication_empty_session(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_norm_001",
+        total_volume=10,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     # Normal occupancy (avg: 2.0 < 5.0) and normal density
     lane = LaneResultRecord(
@@ -516,7 +623,8 @@ def test_dynamic_configuration_changes_detection_behavior(db_session: Session):
         storage_path="uploads/vid_cfg_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Config Test Cam",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -532,7 +640,13 @@ def test_dynamic_configuration_changes_detection_behavior(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_cfg_001",
+        total_volume=30,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     # Lane peak occupancy is 4
     lane = LaneResultRecord(
@@ -549,12 +663,12 @@ def test_dynamic_configuration_changes_detection_behavior(db_session: Session):
     db_session.commit()
 
     # Standard threshold 5 -> 0 events
-    default_service = AnomalyDetectionService(congestion_occupancy_threshold=5)
+    default_service = AnomalyDetectionService(congestion_occupancy_threshold=5, congestion_min_duration_seconds=20.0)
     candidates_default = default_service.detect_for_session(session)
     assert len(candidates_default) == 0
 
     # Custom threshold 4 -> 1 event detected dynamically
-    custom_service = AnomalyDetectionService(congestion_occupancy_threshold=4)
+    custom_service = AnomalyDetectionService(congestion_occupancy_threshold=4, congestion_min_duration_seconds=20.0)
     candidates_custom = custom_service.detect_for_session(session)
     assert len(candidates_custom) == 1
     assert candidates_custom[0]["trigger_value"] == 4.0
@@ -568,7 +682,8 @@ def test_boundary_conditions_and_insufficient_data(db_session: Session):
         storage_path="uploads/vid_bound_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Boundary Cam",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -584,7 +699,13 @@ def test_boundary_conditions_and_insufficient_data(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_bound_001",
+        total_volume=4,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     # Case 1: Lane imbalance with low total volume (< min_volume=5) -> insufficient data -> 0 events
     l1 = LaneResultRecord(
@@ -646,11 +767,12 @@ def test_five_stage_idempotency_and_condition_lifecycle(db_session: Session):
     """
     video = Video(
         id="vid_life_001",
-        original_filename="lifecycle_test.mp4",
+        original_filename="real_traffic_highway_dyglo.mp4",
         storage_path="uploads/vid_life_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Lifecycle Cam #1",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+        license_reference="MIT License",
         status="ready",
     )
     db_session.add(video)
@@ -666,7 +788,13 @@ def test_five_stage_idempotency_and_condition_lifecycle(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session)
-    db_session.commit()
+
+    metrics = TrafficMetricsRecord(
+        analysis_session_id="sess_life_001",
+        total_volume=50,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics)
 
     lane = LaneResultRecord(
         analysis_session_id="sess_life_001",
@@ -726,6 +854,12 @@ def test_five_stage_idempotency_and_condition_lifecycle(db_session: Session):
         completed_at=utcnow(),
     )
     db_session.add(session2)
+    metrics2 = TrafficMetricsRecord(
+        analysis_session_id="sess_life_002",
+        total_volume=60,
+        observation_duration_seconds=25.0,
+    )
+    db_session.add(metrics2)
     lane2 = LaneResultRecord(
         analysis_session_id="sess_life_002",
         lane_id="lane_life_01",
@@ -753,10 +887,10 @@ def test_provenance_inheritance_mix(db_session: Session):
     """
     service = AnomalyDetectionService()
 
-    # 1. Real verified
+    # 1. Real verified (valid registered provenance reference)
     v_real = Video(
-        id="v_real", original_filename="a.mp4", storage_path="a.mp4",
-        source_type="real_world", provenance_verified=True, source_reference="DOT Cam 1", status="ready"
+        id="v_real", original_filename="real_traffic_highway_dyglo.mp4", storage_path="a.mp4",
+        source_type="real_world", provenance_verified=True, source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4", status="ready"
     )
     s_real = AnalysisSession(id="s_real", video_id="v_real", status="completed", started_at=utcnow(), completed_at=utcnow())
     s_real.video = v_real
@@ -798,7 +932,7 @@ def test_dashboard_access_has_zero_side_effects(client: TestClient, db_session: 
         storage_path="uploads/vid_dash_001.mp4",
         source_type="real_world",
         provenance_verified=True,
-        source_reference="Dash Cam",
+        source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
         status="ready",
     )
     db_session.add(video)
@@ -827,4 +961,3 @@ def test_dashboard_access_has_zero_side_effects(client: TestClient, db_session: 
     # Post-check: Still 0 anomaly events in database (read-only aggregation)
     post_events = list(db_session.scalars(select(AnomalyEvent)).all())
     assert len(post_events) == 0
-

@@ -3,13 +3,13 @@ Standalone End-to-End Hardening & Root-Cause Verification Script for Phase 15.
 Traffic Anomaly & Congestion Incident Detection.
 
 Validates:
-1. Real Provenance Evidence (source_type, provenance_verified, source_reference, provenance_category, is_synthetic)
+1. Real Provenance Evidence (audited Phase 11 MIT dataset registry, trust boundary enforcement)
 2. Configuration & Parameter control without hardcoded constants
-3. Anomaly Condition Lifecycle (Start, Continuation, Recovery, Recurrence) vs Operator Status
-4. Strict Idempotency (A -> B -> C -> D -> E)
-5. Rule-by-Rule Inspection & Exact Underlying Value Printing
-6. Positive / Negative / Boundary / Insufficient Data Cases
-7. Provenance Mix Qualification
+3. Congestion Sustained Duration Rule & Exact 20.0s Boundary Verification
+4. Rule-by-Rule Inspection & Exact Underlying Value Printing
+5. Positive / Negative / Boundary / Insufficient Data Cases
+6. Strict 5-Stage Idempotency (A -> B -> C -> D -> E) & Lifecycle Separation
+7. Provenance Mix Qualification (Real, Unverified, Synthetic Pipeline)
 8. Dashboard Side-Effect Isolation (Zero automated inference/detection triggers)
 9. API Response Performance Benchmarks & N+1 / Indexing Verification
 10. System Health Integration
@@ -72,27 +72,31 @@ def main():
 
     try:
         # -------------------------------------------------------------
-        # Check 1: Real Provenance Lineage & Non-Fabrication
+        # Check 1: Real Provenance Lineage & Audited Registry Trust Rules
         # -------------------------------------------------------------
         print("\n[Check 1/10] Verifying Real Provenance Lineage & Trust Rules...")
+        # 1. Genuine Audited Real Video from Phase 11 Registry
         real_video = Video(
-            id="vid_prov_real",
-            original_filename="real_dot_junction_cam12.mp4",
-            storage_path="uploads/vid_prov_real.mp4",
+            id="vid_prov_real_dyglo",
+            original_filename="real_traffic_highway_dyglo.mp4",
+            storage_path="uploads/vid_prov_real_dyglo.mp4",
             source_type="real_world",
             provenance_verified=True,
-            source_reference="Urban DOT Cam #12 (Intersection 4th & Main)",
+            source_reference="https://raw.githubusercontent.com/dyglo/car-traffic/main/assets/traffic.mp4",
+            license_reference="MIT License",
             status="ready",
         )
+        # 2. Unverified Test Video (Trust Level Must Never Upgrade)
         unver_video = Video(
             id="vid_prov_unver",
-            original_filename="unknown_upload.mp4",
+            original_filename="constructed_test_feed.mp4",
             storage_path="uploads/vid_prov_unver.mp4",
             source_type="real_world",
             provenance_verified=False,
             source_reference=None,
             status="ready",
         )
+        # 3. Synthetic Pipeline Video
         synth_video = Video(
             id="vid_prov_synth",
             original_filename="synthetic_sim_run.mp4",
@@ -105,7 +109,7 @@ def main():
         db.add_all([real_video, unver_video, synth_video])
         db.commit()
 
-        s_real = AnalysisSession(id="sess_prov_real", video_id="vid_prov_real", status="completed", started_at=utcnow(), completed_at=utcnow())
+        s_real = AnalysisSession(id="sess_prov_real", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
         s_unver = AnalysisSession(id="sess_prov_unver", video_id="vid_prov_unver", status="completed", started_at=utcnow(), completed_at=utcnow())
         s_synth = AnalysisSession(id="sess_prov_synth", video_id="vid_prov_synth", status="completed", started_at=utcnow(), completed_at=utcnow())
         db.add_all([s_real, s_unver, s_synth])
@@ -120,14 +124,15 @@ def main():
         cat_unver, synth_unver = service._resolve_provenance(s_unver)
         cat_synth, synth_synth = service._resolve_provenance(s_synth)
 
-        print(f"  Real Provenance Evidence:")
+        print(f"  Real Provenance Evidence (Audited Phase 11 MIT Registry):")
         print(f"    source_type         = {real_video.source_type}")
         print(f"    provenance_verified = {real_video.provenance_verified}")
         print(f"    source_reference    = {real_video.source_reference}")
+        print(f"    license_reference   = {real_video.license_reference}")
         print(f"    provenance_category = {cat_real}")
         print(f"    is_synthetic        = {synth_real}")
 
-        print(f"  Unverified Provenance Evidence (Trust Level Never Upgraded):")
+        print(f"  Unverified Test Data (Trust Level Never Upgraded):")
         print(f"    source_type         = {unver_video.source_type}")
         print(f"    provenance_verified = {unver_video.provenance_verified}")
         print(f"    provenance_category = {cat_unver}")
@@ -153,7 +158,8 @@ def main():
         print(f"    anomaly_density_spike_threshold            = {settings.anomaly_density_spike_threshold} veh/px²")
         print(f"    anomaly_min_buckets_for_baseline           = {settings.anomaly_min_buckets_for_baseline}")
 
-        # Test changing threshold dynamically
+        # Attach 25s metrics to s_real for dynamic sensitivity testing
+        m_cfg = TrafficMetricsRecord(analysis_session_id="sess_prov_real", total_volume=30, observation_duration_seconds=25.0)
         lane_cfg = LaneResultRecord(
             analysis_session_id="sess_prov_real",
             lane_id="lane_cfg_test",
@@ -164,11 +170,11 @@ def main():
             normalized_density_score=0.4,
             polygon_area_px2=40000.0,
         )
-        db.add(lane_cfg)
+        db.add_all([m_cfg, lane_cfg])
         db.commit()
 
-        serv_default = AnomalyDetectionService(congestion_occupancy_threshold=5)
-        serv_custom = AnomalyDetectionService(congestion_occupancy_threshold=4)
+        serv_default = AnomalyDetectionService(congestion_occupancy_threshold=5, congestion_min_duration_seconds=20.0)
+        serv_custom = AnomalyDetectionService(congestion_occupancy_threshold=4, congestion_min_duration_seconds=20.0)
         det_default = serv_default.detect_for_session(s_real)
         det_custom = serv_custom.detect_for_session(s_real)
         assert len(det_default) == 0 and len(det_custom) == 1
@@ -176,7 +182,7 @@ def main():
         passed_checks += 1
 
         # -------------------------------------------------------------
-        # Check 3: Rule 1 (Congestion Buildup) Evidence
+        # Check 3: Rule 1 (Congestion Buildup) & Sustained Duration
         # -------------------------------------------------------------
         print("\n[Check 3/10] Evaluating RULE: congestion_buildup...")
         lane_cong = LaneResultRecord(
@@ -196,19 +202,70 @@ def main():
 
         events_cong = service.detect_and_persist_for_session(db, "sess_prov_real")
         ev_c = next(e for e in events_cong if e.anomaly_type == "congestion_buildup" and e.lane_id == "lane_cong_01")
-        print(f"  observed_value    = {ev_c.trigger_value} vehicles")
-        print(f"  threshold         = {ev_c.threshold_value} vehicles")
-        print(f"  duration_observed = {ev_c.duration_seconds}s")
-        print(f"  severity          = {ev_c.severity}")
-        print(f"  event_id          = {ev_c.id}")
-        print(f"  provenance        = {ev_c.provenance_category}")
-        print(f"  RESULT            = PASS")
+        print(f"  observed_value      = {ev_c.trigger_value} vehicles")
+        print(f"  threshold           = {ev_c.threshold_value} vehicles")
+        print(f"  duration_observed   = {ev_c.duration_seconds}s")
+        print(f"  duration_required   = {ev_c.details_json['duration_required']}s")
+        print(f"  condition_sustained = {ev_c.details_json['condition_sustained']}")
+        print(f"  severity            = {ev_c.severity}")
+        print(f"  event_id            = {ev_c.id}")
+        print(f"  condition_state     = {ev_c.details_json['condition_state']}")
+        print(f"  provenance          = {ev_c.provenance_category}")
+        print(f"  RESULT              = PASS")
+        assert ev_c.duration_seconds >= 20.0
+        assert ev_c.details_json["condition_sustained"] is True
         passed_checks += 1
 
         # -------------------------------------------------------------
-        # Check 4: Rule 2 (Abnormal Flow Drop) Evidence
+        # Check 4: Sustained Duration Boundary Proof (15s, 19.99s, 20.0s, 21.12s)
         # -------------------------------------------------------------
-        print("\n[Check 4/10] Evaluating RULE: abnormal_flow_drop...")
+        print("\n[Check 4/10] Verifying Sustained Duration Boundaries (15s, 19.99s, 20.0s, 21.12s)...")
+        # 1. 15.0s -> Non-qualifying
+        s_dur15 = AnalysisSession(id="s_dur15", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_dur15 = TrafficMetricsRecord(analysis_session_id="s_dur15", total_volume=20, observation_duration_seconds=15.0)
+        l_dur15 = LaneResultRecord(analysis_session_id="s_dur15", lane_id="l1", lane_name="L1", peak_occupancy=9, average_occupancy=7.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+        db.add_all([s_dur15, m_dur15, l_dur15])
+
+        # 2. 19.99s -> Non-qualifying
+        s_dur19 = AnalysisSession(id="s_dur19", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_dur19 = TrafficMetricsRecord(analysis_session_id="s_dur19", total_volume=20, observation_duration_seconds=19.99)
+        l_dur19 = LaneResultRecord(analysis_session_id="s_dur19", lane_id="l1", lane_name="L1", peak_occupancy=9, average_occupancy=7.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+        db.add_all([s_dur19, m_dur19, l_dur19])
+
+        # 3. 20.00s -> Qualifying (exact boundary)
+        s_dur20 = AnalysisSession(id="s_dur20", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_dur20 = TrafficMetricsRecord(analysis_session_id="s_dur20", total_volume=20, observation_duration_seconds=20.0)
+        l_dur20 = LaneResultRecord(analysis_session_id="s_dur20", lane_id="l1", lane_name="L1", peak_occupancy=9, average_occupancy=7.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+        db.add_all([s_dur20, m_dur20, l_dur20])
+
+        # 4. 21.12s -> Qualifying (genuine dyglo recording duration)
+        s_dur21 = AnalysisSession(id="s_dur21", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_dur21 = TrafficMetricsRecord(analysis_session_id="s_dur21", total_volume=20, observation_duration_seconds=21.12)
+        l_dur21 = LaneResultRecord(analysis_session_id="s_dur21", lane_id="l1", lane_name="L1", peak_occupancy=9, average_occupancy=7.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0)
+        db.add_all([s_dur21, m_dur21, l_dur21])
+        db.commit()
+
+        cands15 = service.detect_for_session(s_dur15)
+        cands19 = service.detect_for_session(s_dur19)
+        cands20 = service.detect_for_session(s_dur20)
+        cands21 = service.detect_for_session(s_dur21)
+
+        print(f"  Duration 15.00s (< 20.0s required) : {len(cands15)} events (Transient condition rejected)")
+        print(f"  Duration 19.99s (< 20.0s boundary) : {len(cands19)} events (Just-below boundary rejected)")
+        print(f"  Duration 20.00s (== 20.0s boundary): {len(cands20)} events (Exact boundary qualified)")
+        print(f"  Duration 21.12s (>= 20.0s real vid): {len(cands21)} events (Sustained condition qualified)")
+
+        assert len(cands15) == 0
+        assert len(cands19) == 0
+        assert len(cands20) == 1 and cands20[0]["duration_seconds"] == 20.0
+        assert len(cands21) == 1 and cands21[0]["duration_seconds"] == 21.12
+        print("  ✓ Congestion Duration Boundary Enforcement PASSED.")
+        passed_checks += 1
+
+        # -------------------------------------------------------------
+        # Check 5: Rule 2 (Abnormal Flow Drop) Evidence
+        # -------------------------------------------------------------
+        print("\n[Check 5/10] Evaluating RULE: abnormal_flow_drop...")
         buckets = [
             {"bucket_index": 0, "start_time_seconds": 0.0, "end_time_seconds": 10.0, "count": 12, "flow_rate_per_minute": 72.0},
             {"bucket_index": 1, "start_time_seconds": 10.0, "end_time_seconds": 20.0, "count": 12, "flow_rate_per_minute": 72.0},
@@ -238,69 +295,39 @@ def main():
         passed_checks += 1
 
         # -------------------------------------------------------------
-        # Check 5: Rule 3 (Lane Imbalance) Evidence
+        # Check 6: Rule 3 (Lane Imbalance) & Rule 4 (Density Spike)
         # -------------------------------------------------------------
-        print("\n[Check 5/10] Evaluating RULE: lane_imbalance...")
-        s_imbal = AnalysisSession(id="sess_imbal", video_id="vid_prov_real", status="completed", started_at=utcnow(), completed_at=utcnow())
-        db.add(s_imbal)
+        print("\n[Check 6/10] Evaluating RULE: lane_imbalance & density_spike...")
+        s_rules = AnalysisSession(id="sess_rules", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_rules = TrafficMetricsRecord(analysis_session_id="sess_rules", total_volume=40, observation_duration_seconds=25.0)
         l_dom = LaneResultRecord(
-            analysis_session_id="sess_imbal", lane_id="lane_dom", lane_name="Express Thru",
+            analysis_session_id="sess_rules", lane_id="lane_dom", lane_name="Express Thru",
             unique_vehicles_count=35, peak_occupancy=10, average_occupancy=8.0,
-            image_space_density=0.0001, normalized_density_score=0.7, polygon_area_px2=40000.0,
-        )
-        l_starv = LaneResultRecord(
-            analysis_session_id="sess_imbal", lane_id="lane_starv", lane_name="Local Curb",
-            unique_vehicles_count=5, peak_occupancy=2, average_occupancy=1.5,
-            image_space_density=0.00002, normalized_density_score=0.2, polygon_area_px2=40000.0,
-        )
-        db.add_all([l_dom, l_starv])
-        db.commit()
-
-        events_imbal = service.detect_and_persist_for_session(db, "sess_imbal")
-        ev_i = next(e for e in events_imbal if e.anomaly_type == "lane_imbalance")
-        print(f"  dominant_lane     = {ev_i.details_json['dominant_lane_name']}")
-        print(f"  dominant_value    = {ev_i.details_json['dominant_lane_count']} veh")
-        print(f"  starved_lane      = {ev_i.details_json['starved_lane_name']}")
-        print(f"  starved_value     = {ev_i.details_json['starved_lane_count']} veh")
-        print(f"  ratio             = {ev_i.trigger_value:.2f}x")
-        print(f"  threshold         = {ev_i.threshold_value:.1f}x")
-        print(f"  severity          = {ev_i.severity}")
-        print(f"  event_id          = {ev_i.id}")
-        print(f"  RESULT            = PASS")
-        passed_checks += 1
-
-        # -------------------------------------------------------------
-        # Check 6: Rule 4 (Density Spike) Evidence
-        # -------------------------------------------------------------
-        print("\n[Check 6/10] Evaluating RULE: density_spike...")
-        s_dens = AnalysisSession(id="sess_dens", video_id="vid_prov_real", status="completed", started_at=utcnow(), completed_at=utcnow())
-        db.add(s_dens)
-        l_dens = LaneResultRecord(
-            analysis_session_id="sess_dens", lane_id="lane_d1", lane_name="Dense Funnel",
-            unique_vehicles_count=20, peak_occupancy=8, average_occupancy=6.0,
             image_space_density=0.00085, normalized_density_score=0.98, polygon_area_px2=10000.0,
             density_calibration_warning="Image-space density (veh/px²) is uncalibrated camera perspective, not physical veh/km².",
         )
-        db.add(l_dens)
+        l_starv = LaneResultRecord(
+            analysis_session_id="sess_rules", lane_id="lane_starv", lane_name="Local Curb",
+            unique_vehicles_count=5, peak_occupancy=2, average_occupancy=1.5,
+            image_space_density=0.00002, normalized_density_score=0.2, polygon_area_px2=40000.0,
+        )
+        db.add_all([s_rules, m_rules, l_dom, l_starv])
         db.commit()
 
-        events_dens = service.detect_and_persist_for_session(db, "sess_dens")
-        ev_d = next(e for e in events_dens if e.anomaly_type == "density_spike")
-        print(f"  density             = {ev_d.trigger_value:.6f}")
-        print(f"  threshold           = {ev_d.threshold_value:.6f}")
-        print(f"  units               = {ev_d.details_json['density_unit']}")
-        print(f"  calibration_warning = {ev_d.details_json['calibration_warning'] is not None}")
-        print(f"  severity            = {ev_d.severity}")
-        print(f"  event_id            = {ev_d.id}")
-        print(f"  RESULT              = PASS")
+        events_rules = service.detect_and_persist_for_session(db, "sess_rules")
+        ev_i = next(e for e in events_rules if e.anomaly_type == "lane_imbalance")
+        ev_d = next(e for e in events_rules if e.anomaly_type == "density_spike")
+
+        print(f"  [Lane Imbalance] dominant_lane = {ev_i.details_json['dominant_lane_name']} ({ev_i.details_json['dominant_lane_count']} veh), starved_lane = {ev_i.details_json['starved_lane_name']} ({ev_i.details_json['starved_lane_count']} veh), ratio = {ev_i.trigger_value:.2f}x (threshold: {ev_i.threshold_value}x) -> PASS")
+        print(f"  [Density Spike]  density = {ev_d.trigger_value:.6f} {ev_d.details_json['density_unit']} (threshold: {ev_d.threshold_value:.6f}, cal_warning={ev_d.details_json['calibration_warning'] is not None}) -> PASS")
         passed_checks += 1
 
         # -------------------------------------------------------------
         # Check 7: Positive / Negative / Boundary / Insufficient Data
         # -------------------------------------------------------------
         print("\n[Check 7/10] Testing Positive / Negative / Boundary / Insufficient Data...")
-        s_bound = AnalysisSession(id="sess_bound", video_id="vid_prov_real", status="completed", started_at=utcnow(), completed_at=utcnow())
-        db.add(s_bound)
+        s_bound = AnalysisSession(id="sess_bound", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_bound = TrafficMetricsRecord(analysis_session_id="sess_bound", total_volume=4, observation_duration_seconds=25.0)
 
         # 1. Exact Boundary: peak occupancy == 5.0 -> Positive (low)
         l_exact = LaneResultRecord(
@@ -317,7 +344,7 @@ def main():
             analysis_session_id="sess_bound", lane_id="lane_low", lane_name="Low Volume Lane",
             unique_vehicles_count=1, peak_occupancy=1, average_occupancy=0.5, image_space_density=0.00001, normalized_density_score=0.1, polygon_area_px2=30000.0,
         )
-        db.add_all([l_exact, l_below, l_low_vol])
+        db.add_all([s_bound, m_bound, l_exact, l_below, l_low_vol])
         db.commit()
 
         cands = service.detect_for_session(s_bound)
@@ -330,16 +357,16 @@ def main():
         passed_checks += 1
 
         # -------------------------------------------------------------
-        # Check 8: Strict 5-Stage Idempotency & Lifecycle Separation
+        # Check 8: Strict 5-Stage Idempotency & Lifecycle Architecture
         # -------------------------------------------------------------
         print("\n[Check 8/10] Verifying 5-Stage Idempotency & Lifecycle Architecture...")
-        s_idem = AnalysisSession(id="sess_idem_verify", video_id="vid_prov_real", status="completed", started_at=utcnow(), completed_at=utcnow())
-        db.add(s_idem)
+        s_idem = AnalysisSession(id="sess_idem_verify", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_idem = TrafficMetricsRecord(analysis_session_id="sess_idem_verify", total_volume=50, observation_duration_seconds=25.0)
         l_idem = LaneResultRecord(
             analysis_session_id="sess_idem_verify", lane_id="lane_idem", lane_name="Lifecycle Approach",
             peak_occupancy=6, average_occupancy=4.5, image_space_density=0.0001, normalized_density_score=0.6, polygon_area_px2=40000.0,
         )
-        db.add(l_idem)
+        db.add_all([s_idem, m_idem, l_idem])
         db.commit()
 
         # Stage A: First detection
@@ -372,13 +399,13 @@ def main():
         print(f"  Stage D (Recovery): Same event marked condition_state='recovered' (Physical recovery recorded)")
 
         # Stage E: Recurrence at later time
-        s_recur = AnalysisSession(id="sess_idem_recur", video_id="vid_prov_real", status="completed", started_at=utcnow(), completed_at=utcnow())
-        db.add(s_recur)
+        s_recur = AnalysisSession(id="sess_idem_recur", video_id="vid_prov_real_dyglo", status="completed", started_at=utcnow(), completed_at=utcnow())
+        m_recur = TrafficMetricsRecord(analysis_session_id="sess_idem_recur", total_volume=60, observation_duration_seconds=25.0)
         l_recur = LaneResultRecord(
             analysis_session_id="sess_idem_recur", lane_id="lane_idem", lane_name="Lifecycle Approach",
             peak_occupancy=10, average_occupancy=7.0, image_space_density=0.0001, normalized_density_score=0.8, polygon_area_px2=40000.0,
         )
-        db.add(l_recur)
+        db.add_all([s_recur, m_recur, l_recur])
         db.commit()
         e_e = service.detect_and_persist_for_session(db, "sess_idem_recur")
         assert len(e_e) == 1 and e_e[0].id != orig_id

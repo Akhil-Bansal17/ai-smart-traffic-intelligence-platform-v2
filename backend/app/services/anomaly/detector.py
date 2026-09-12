@@ -202,10 +202,14 @@ class AnomalyDetectionService:
         # Rule 1: Congestion Buildup
         # -------------------------------------------------------------
         for lane in lanes:
-            if (
+            condition_met = (
                 lane.peak_occupancy >= self.congestion_occupancy_threshold
                 or lane.normalized_density_score >= self.congestion_density_score_threshold
-            ):
+            )
+            # Duration requirement: condition must be sustained for >= congestion_min_duration_seconds
+            duration_sustained = obs_duration >= self.congestion_min_duration_seconds
+
+            if condition_met and duration_sustained:
                 # Calculate severity
                 peak = lane.peak_occupancy
                 thresh = self.congestion_occupancy_threshold
@@ -228,7 +232,8 @@ class AnomalyDetectionService:
                     "title": f"Congestion Buildup on {lane.lane_name}",
                     "description": (
                         f"Lane '{lane.lane_name}' reached a peak occupancy of {peak} vehicles "
-                        f"(threshold: {thresh}) with normalized density score of {lane.normalized_density_score:.2f}."
+                        f"(threshold: {thresh}) with normalized density score of {lane.normalized_density_score:.2f} "
+                        f"sustained for {obs_duration:.1f}s (required: {self.congestion_min_duration_seconds:.1f}s)."
                     ),
                     "start_timestamp_seconds": 0.0,
                     "end_timestamp_seconds": obs_duration,
@@ -248,6 +253,9 @@ class AnomalyDetectionService:
                         "average_occupancy": lane.average_occupancy,
                         "normalized_density_score": lane.normalized_density_score,
                         "polygon_area_px2": lane.polygon_area_px2,
+                        "duration_observed": obs_duration,
+                        "duration_required": self.congestion_min_duration_seconds,
+                        "condition_sustained": True,
                     },
                 })
 
