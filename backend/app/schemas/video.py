@@ -50,4 +50,7 @@ class VideoUploadResponse(BaseModel):
 
 class VideoListResponse(BaseModel):
     total: int
+    limit: Optional[int] = None
+    offset: Optional[int] = None
     videos: List[VideoResponse]
+

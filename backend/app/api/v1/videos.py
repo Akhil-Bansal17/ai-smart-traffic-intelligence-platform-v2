@@ -6,7 +6,7 @@ Handles:
 - GET /api/v1/videos/{video_id} — Retrieve video record and metadata
 - GET /api/v1/videos — List all uploaded videos
 """
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -152,13 +152,19 @@ def get_video(
     summary="List all uploaded videos",
 )
 def list_videos(
+    limit: int = Query(default=100, ge=1, le=500, description="Maximum videos to return"),
+    offset: int = Query(default=0, ge=0, description="Number of videos to skip"),
     db: Session = Depends(get_db),
 ) -> VideoListResponse:
-    videos = db.query(Video).order_by(Video.uploaded_at.desc()).all()
+    total = db.query(Video).count()
+    videos = db.query(Video).order_by(Video.uploaded_at.desc()).offset(offset).limit(limit).all()
     return VideoListResponse(
-        total=len(videos),
+        total=total,
+        limit=limit,
+        offset=offset,
         videos=[VideoResponse.model_validate(v) for v in videos],
     )
+
 
 
 @router.post(

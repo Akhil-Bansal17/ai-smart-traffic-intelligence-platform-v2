@@ -33,6 +33,13 @@ Add a **Traffic Anomaly & Congestion Incident Detection** capability that analyz
 
 This is a detection and decision-support layer over existing data — it is not a new CV model, not a new ML forecasting model, and does not require additional real-world observation volume (it operates on whatever `TrafficMetricsRecord`/`LaneResultRecord` data already exists, real or synthetic, with provenance always carried through and displayed).
 
+## Terminology
+
+**Anomaly** = a detected deviation from a configured/statistical baseline.
+**Incident** = a persisted anomaly event that satisfies the configured detection and duration/threshold criteria.
+
+Do not imply an anomaly is an accident or emergency. UI wording must remain traffic-anomaly / congestion-alert / decision-support terminology unless the underlying data actually supports a stronger claim.
+
 ## Existing Components to Reuse (do not rebuild)
 
 - Traffic Analytics computation and persisted `TrafficMetricsRecord` (Phase 8/10)
@@ -79,12 +86,28 @@ The detection service runs against already-persisted data — either as a lightw
 
 3. **No fabrication**: if no data qualifies for a given detection rule, no anomaly is created — do not force-generate anomalies to populate the UI.
 
+## Anomaly Deduplication / Event Lifecycle
+
+A sustained anomaly must be represented as a single event with start/end/continuation semantics, not a new row for every evaluation interval. Define and implement:
+- **Start**: first evaluation interval where the condition is met — creates a new open `AnomalyEvent`.
+- **Continuation**: subsequent evaluation intervals where the condition remains met — update the existing open event (e.g. extend duration, update peak/latest metric values), do not create a new row.
+- **Recovery/End**: first evaluation interval where the condition no longer holds — close the open event with an end timestamp.
+- **Repeated occurrence**: if the condition recurs after a recovered/closed event, this is a new, separate `AnomalyEvent` — do not merge it into the prior closed event.
+
+Re-running detection for the same session/time window must be idempotent and must not create duplicate persisted events for a condition already represented by an open or matching closed event.
+
 ## Data / Provenance Requirements
 
 - Every `AnomalyEvent` must carry through the provenance category of the underlying `TrafficMetricsRecord`/`LaneResultRecord` it was derived from.
 - Anomalies derived from `synthetic_pipeline_metrics` or `synthetic_fixture` data must be visibly labeled as synthetic in both API responses and UI — never displayed as a real incident.
 - Anomalies must never be derived from Phase 12/13 simulation output and presented as real-world incidents; if simulation-derived anomaly detection is out of scope for this phase, exclude it explicitly (see Strict Scope Exclusions).
 - If underlying data is insufficient to evaluate a rule (e.g. not enough history for a rolling baseline), the API/UI must report that rule as "insufficient data," not silently skip it without explanation.
+
+## Critical Provenance Trust Rule
+
+`AnomalyEvent` must inherit provenance from the actual source records and must never upgrade its trust level. Labeling an anomaly as REAL DATA requires satisfying the existing Phase 11 provenance requirements, including verified provenance and a valid source reference — a database label alone (e.g. `source_type = real_world`) is not proof. Unknown or unverified provenance must not be labeled REAL DATA. Require and preserve the full traceability chain:
+
+`AnomalyEvent → source metric/lane result → AnalysisSession → Video → source_type/provenance fields/source reference`
 
 ## API Requirements
 
@@ -152,6 +175,10 @@ Extend or add a verification script that:
 - Confirms provenance labeling is correct on generated anomaly events
 - Confirms API filter/query behavior
 - Prints explicit pass/fail per check with the underlying values checked — not just "success"
+
+## Real Data Behavior Rule
+
+Verification may use constructed/seeded test conditions, but these must remain clearly identified as synthetic/test data. Never fabricate a real-world anomaly merely to demonstrate the system. Do not lower thresholds or manipulate real data to force an anomaly to occur. If genuine persisted data contains no anomaly, the correct and required result is "No anomaly detected."
 
 ## Regression
 

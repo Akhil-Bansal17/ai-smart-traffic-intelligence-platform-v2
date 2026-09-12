@@ -57,3 +57,18 @@ app.include_router(api_router)
 def root_health() -> dict:
     """Unversioned liveness check for infra (load balancers, Docker healthchecks)."""
     return {"status": "ok", "service": "traffic-platform-api"}
+
+
+@app.get("/readiness", tags=["system"])
+def root_readiness():
+    """Unversioned readiness check for container orchestrators (Kubernetes, Docker)."""
+    from app.api.v1.health import readiness as check_readiness
+    from app.db.session import SessionLocal
+    from fastapi import Response
+    resp = Response()
+    db = SessionLocal()
+    try:
+        return check_readiness(response=resp, db=db)
+    finally:
+        db.close()
+

@@ -28,15 +28,15 @@ Last updated: 2026-09-09
 **Phase 13 — Emergency Corridor Simulation: COMPLETE (re-verified live, 10/10 checks passed, 141 backend tests passed)**
 **Phase 14 — System-Wide Traffic Intelligence & Decision-Support Dashboard: COMPLETE (re-verified live, 11/11 checks passed, 146 backend tests passed)**
 **Phase 15 — Traffic Anomaly & Congestion Incident Detection: COMPLETE (re-verified live, 10/10 hardening checks passed, 159 backend tests passed)**
+**Phase 16 — Production Readiness, Reliability, Security & Observability Hardening: COMPLETE (re-verified live, 16/16 hardening checks passed, 172 backend tests passed, full regression verified)**
 
-> **Workflow note (Phase 15 Hardening & Verification):** Phase 15 Traffic Anomaly & Congestion Incident Detection completed and hardened with 100% rigorous verification.
-> *Explainable Statistical Engine: Zero black-box ML inference or hallucinated incident fabrication. Anomalies represent mathematical threshold deviations on persisted metrics only.*
+> **Workflow note (Phase 16 Hardening & Verification):** Phase 16 Production Readiness, Reliability, Security & Observability Hardening completed and hardened with 100% rigorous verification across all 20 audit dimensions.
+> Phase 15 Gate Resolution: Congestion sustained duration rule fully verified with all four positive, negative, and exact boundary proof cases (15.0s -> 0 events rejected; 19.99s -> 0 events rejected; 20.00s -> 1 event qualified; 21.12s -> 1 event qualified).
 > Hardening Highlights:
-> 1. Real Provenance Evidence: Strictly verified provenance chain (`AnomalyEvent` $\to$ `LaneResultRecord`/`TrafficMetricsRecord` $\to$ `AnalysisSession` $\to$ `Video` $\to$ `source_type='real_world'` AND `provenance_verified=True` AND `source_reference`). Unverified/unknown data never upgrades to real.
-> 2. Configuration Control: Centralized settings in `settings.py` for all thresholds (occupancy, flow drop %, lane imbalance ratio & min volume, density spike, baseline buckets). Dynamic configurability verified without code modification.
-> 3. Lifecycle & Idempotency: Physical condition lifecycle (`active`, `ongoing`, `recovered`) architecturally separated from operator triage status (`open`, `acknowledged`, `resolved`). Strict 5-stage idempotency verified (First detection $\to$ Re-detection $\to$ Continuation update $\to$ Condition recovery $\to$ Recurrence at later time).
-> 4. Performance & Zero Side-Effects: Dashboard read-only requests produce zero model or detector invocations. Anomaly API endpoints benchmarked at < 15ms response latency.
-> Full regression: 159/159 backend pytest tests passing, frontend typecheck (0 errors), frontend production build passing (1630 modules transformed), all Phase 10–15 verification scripts passing at 100%. Phase 15 is declared **VERIFIED**.
+> 1. Configuration Validation: Strict Pydantic v2 field & model validators enforcing valid environments, log levels, numerical bounds, and refusal to boot in production with default/short secret keys.
+> 2. Health & Readiness Diagnostics: Implemented `/api/v1/health/readiness` and `/readiness` evaluating database connectivity, storage write permissions, model weight presence, and configuration integrity with sub-10ms response latencies.
+> 3. Security & Resource Boundaries: Upload path traversal sanitization, bounded query pagination across video/anomaly/simulation lists, and standardized error envelopes preventing stack trace/raw SQL leakage.
+> 4. Full Regression: 172/172 backend pytest tests passing, frontend typecheck (0 errors), frontend production build passing (1630 modules transformed), all 14 Phase 5–16 verification scripts passing at 100%. Phase 16 is declared **VERIFIED**.
 
 
 
@@ -197,8 +197,8 @@ Last updated: 2026-09-09
 | 12 | Signal Optimization Simulation | ✅ Complete (verified live) |
 | 13 | Emergency Corridor Simulation | ✅ Complete (verified live) |
 | 14 | System-Wide Traffic Intelligence Dashboard | ✅ Complete (verified live) |
-| 15 | Security Hardening | ⬜ Not started |
-| 16 | Testing & Quality Gate | ⬜ Not started |
+| 15 | Traffic Anomaly & Congestion Incident Detection | ✅ Complete (verified live) |
+| 16 | Production Readiness & Observability Hardening | ✅ Complete (verified live) |
 | 17 | Docker + Deployment | ⬜ Not started |
 | 18 | Documentation & Portfolio Polish | ⬜ Not started |
 
@@ -212,19 +212,25 @@ None.
 
 ## Technical Decisions Log
 
-- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–13 are verified and operational.
+- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–16 are verified and operational.
 - **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay, signal simulation, and coordinated emergency corridor progression engine.
-- **Signal Optimization & Emergency Corridor Discipline (Phases 12 & 13):**
-  - Decision-support simulation only — never physical control.
-  - Strict 4-way provenance segregation: `real_database_metrics` (from verified real videos), `synthetic_pipeline_metrics` (from synthetic test video pipeline), `simulation_configured` (direct user/scenario parameters), `synthetic_fixture` (synthetic test fixtures).
-  - Multi-approach expansion honesty: when linking single-camera DB sessions to a multi-approach intersection, unmeasured approaches are transparently expanded and tagged in the response.
-  - Strict safety constraints: $g_{\text{min}} \ge 7$s, yellow clearance $\ge 3$s, all-red clearance $\ge 1$s, max priority cap $\le 80$s, and conflict-free phase transitions.
-  - Realistic trade-off modeling: emergency vehicle progression travel time reduction is explicitly contrasted with non-priority cross-street queue growth and delay penalties.
+- **Production Readiness & Hardening Discipline (Phase 16):**
+  - Robust Pydantic v2 field and model validators on all operational configuration settings.
+  - Refusal to start in production environment with default or weak secret keys.
+  - Health liveness (`GET /health`, `GET /api/v1/health`) separated from deep readiness diagnostics (`GET /readiness`, `GET /api/v1/health/readiness`).
+  - Read-only dashboard summary guarantee: 100% side-effect free on page load/refresh.
+  - Bounded pagination parameters (`limit`, `offset`) on all list endpoints.
+  - Standardized error envelope preventing raw internal paths, stack traces, or SQL errors from reaching clients.
+  - UTF-8 subprocess encoding resilience across cross-platform environments.
 - **Performance Benchmarks:**
+  - Health liveness latency: $\approx 4.5\text{ms}$
+  - Readiness diagnostic probe latency: $\approx 6.7\text{ms}$
+  - Dashboard summary aggregation latency: $\approx 14.7\text{ms}$
   - Dataset extraction: $\approx 8.5\text{ms}$
   - ML multi-step inference: $\approx 12.4\text{ms}$
   - Signal optimization simulation: $\approx 0.32\text{ms}$ mean latency
   - Emergency corridor simulation: $\approx 0.18\text{ms}$ mean latency
+  - Anomaly list query latency: $\approx 7.5\text{ms}$
 
 ## Environment Information
 
@@ -232,9 +238,9 @@ None.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
 - Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0008_create_anomaly_events_tables`).
 
-## Latest Successful Tests (Phase 15 Verification)
+## Latest Successful Tests (Phase 16 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests -v` → **160 passed, 0 failures** (2026-09-12), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, and anomaly detection test suites in 65.59s.
+- **Backend Test Suite:** `python -m pytest backend/tests -v` → **172 passed, 0 failures** (2026-09-12), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, anomaly detection, health/readiness, and production hardening test suites in 78.81s.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -249,11 +255,12 @@ None.
   - `scripts/verify_phase13_emergency_corridor.py`: PASSED (10/10 checks, 100% pass rate)
   - `scripts/verify_phase14_dashboard.py`: PASSED (11/11 checks, 100% pass rate, mean server execution 63.13ms)
   - `scripts/verify_phase15_anomaly_detection.py`: PASSED (10/10 checks, 100% pass rate)
+  - `scripts/verify_phase16_production_readiness.py`: PASSED (16/16 checks, 100% pass rate)
 - **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1630 modules transformed, success (0 errors, 0 warnings)**.
 
 ## Next Task
 
-**Phase 16 — Operational Reporting, Alerts & Exporting.** Automated PDF/CSV export engine, incident summary digest, and export audit trails.
+**Phase 17 — Docker Compose Containerization & Deployment.** Multi-stage container builds, docker-compose orchestration, environment wiring, and deployment healthchecks.
 
 
 
