@@ -8,11 +8,14 @@ import { uploadVideo, listVideos } from '@/api/videos';
 import { detectVideo } from '@/api/detection';
 import { trackVideo } from '@/api/tracking';
 import { countVideo } from '@/api/counting';
+import { createAnalysisJob, getAnalysisJob, cancelAnalysisJob } from '@/api/analysis';
 import { VideoMetadata } from '@/types/video';
 import { VideoDetectionResponse } from '@/types/detection';
 import { VideoTrackingResponse } from '@/types/tracking';
 import { VideoCountingResponse } from '@/types/counting';
+import { AnalysisJob } from '@/types/analysis';
 import { ApiError } from '@/types/api';
+import { Link } from 'react-router-dom';
 import {
   Upload,
   FileVideo,
@@ -34,6 +37,13 @@ import {
   Hash,
   ArrowDownRight,
   ArrowUpRight,
+  Play,
+  StopCircle,
+  AlertCircle,
+  ExternalLink,
+  Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 type AnalysisMode = 'counting' | 'tracking' | 'detection';
@@ -70,7 +80,80 @@ export function VideoAnalysisPage() {
   const [iouThreshold, setIouThreshold] = useState<number>(0.30);
   const [linePositionRatio, setLinePositionRatio] = useState<number>(0.50);
 
+  // Phase 17: Background Analysis Job Orchestration state
+  const [activeJob, setActiveJob] = useState<AnalysisJob | null>(null);
+  const [isCreatingJob, setIsCreatingJob] = useState<boolean>(false);
+  const [jobError, setJobError] = useState<string | null>(null);
+  const [isCancellingJob, setIsCancellingJob] = useState<boolean>(false);
+  const [jobAnalysisType, setJobAnalysisType] = useState<string>('full_pipeline');
+  const [copiedJobId, setCopiedJobId] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Polling for active background job (1.5s interval with unmount cleanup)
+  useEffect(() => {
+    if (!activeJob || (activeJob.status !== 'queued' && activeJob.status !== 'running')) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const latest = await getAnalysisJob(activeJob.id);
+        setActiveJob(latest);
+      } catch (err) {
+        console.warn('Background job polling error:', err);
+      }
+    }, 1500);
+
+    return () => clearInterval(intervalId);
+  }, [activeJob?.id, activeJob?.status]);
+
+  const handleLaunchJob = async (videoId: string) => {
+    if (!videoId) return;
+    setIsCreatingJob(true);
+    setJobError(null);
+    try {
+      const job = await createAnalysisJob({
+        video_id: videoId,
+        analysis_type: jobAnalysisType,
+        confidence_threshold: confidenceThreshold,
+        max_frames: maxFrames,
+        iou_threshold: iouThreshold,
+        counting_line: {
+          p1: { x: 0.0, y: linePositionRatio },
+          p2: { x: 1.0, y: linePositionRatio },
+          label: 'main_tripwire',
+          direction_a_to_b: 'inbound',
+          direction_b_to_a: 'outbound',
+          min_movement_px: 2.0,
+        },
+      });
+      setActiveJob(job);
+    } catch (err: any) {
+      setJobError(err?.message || 'Failed to submit analysis job');
+    } finally {
+      setIsCreatingJob(false);
+    }
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    if (!jobId) return;
+    setIsCancellingJob(true);
+    try {
+      const res = await cancelAnalysisJob(jobId);
+      setActiveJob(res.job);
+    } catch (err: any) {
+      setJobError(err?.message || 'Failed to cancel analysis job');
+    } finally {
+      setIsCancellingJob(false);
+    }
+  };
+
+  const handleCopyJobId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedJobId(true);
+    setTimeout(() => setCopiedJobId(false), 2000);
+  };
 
   const fetchRecentVideos = async () => {
     setIsLoadingList(true);
@@ -501,7 +584,7 @@ export function VideoAnalysisPage() {
 
                     <Button
                       type="button"
-                      variant="primary"
+                      variant="outline"
                       size="sm"
                       disabled={isPipelineBusy}
                       onClick={() => handleRunCounting(currentVideo.id)}
@@ -514,12 +597,217 @@ export function VideoAnalysisPage() {
                         </>
                       ) : (
                         <>
-                          <Calculator className="h-3.5 w-3.5 mr-1.5 fill-current" />
-                          Run Vehicle Counting (Phase 7)
+                          <Calculator className="h-3.5 w-3.5 mr-1.5 text-cyan-400" />
+                          Direct Counting
                         </>
                       )}
                     </Button>
                   </div>
+                </div>
+
+                {/* Phase 17: Background Analysis Job Launcher */}
+                <div className="pt-3 border-t border-cyan-900/50 bg-cyan-950/20 -mx-4 -mb-4 p-4 rounded-b-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-cyan-400" />
+                      <div>
+                        <span className="text-xs font-semibold text-white">Background Analysis Job (Phase 17)</span>
+                        <p className="text-[11px] text-slate-400">Non-blocking background worker with live progress, concurrency control & cancellation</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={jobAnalysisType}
+                        onChange={(e) => setJobAnalysisType(e.target.value)}
+                        className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
+                        disabled={Boolean(isCreatingJob || activeJob?.status === 'queued' || activeJob?.status === 'running')}
+                      >
+                        <option value="full_pipeline">Full Pipeline (All Stages)</option>
+                        <option value="counting">Counting Tripwire</option>
+                        <option value="lane_analysis">Lane Density</option>
+                        <option value="analytics">Flow Analytics</option>
+                      </select>
+
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={Boolean(isCreatingJob || activeJob?.status === 'queued' || activeJob?.status === 'running')}
+                        onClick={() => handleLaunchJob(currentVideo.id)}
+                        className="text-xs shadow-md shadow-cyan-950"
+                      >
+                        {isCreatingJob ? (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                            Queuing Job...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
+                            Launch Background Job
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {jobError && (
+                    <div className="p-3 rounded-lg bg-red-950/50 border border-red-900/60 text-xs text-red-200 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                      <span>{jobError}</span>
+                    </div>
+                  )}
+
+                  {/* Active Job Real-Time Card */}
+                  {activeJob && (
+                    <div className="p-4 rounded-xl border border-cyan-800/60 bg-slate-900/90 shadow-lg space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-200">Active Job:</span>
+                          <span className="font-mono text-xs text-cyan-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                            {activeJob.id.slice(0, 13)}...
+                          </span>
+                          <button
+                            onClick={() => handleCopyJobId(activeJob.id)}
+                            className="text-slate-400 hover:text-white transition-colors"
+                            title="Copy full Job ID"
+                          >
+                            {copiedJobId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              activeJob.status === 'completed'
+                                ? 'success'
+                                : activeJob.status === 'running'
+                                ? 'default'
+                                : activeJob.status === 'queued'
+                                ? 'warning'
+                                : activeJob.status === 'failed'
+                                ? 'danger'
+                                : 'outline'
+                            }
+                            size="sm"
+                          >
+                            {activeJob.status === 'running' && <RefreshCw className="h-3 w-3 mr-1 animate-spin" />}
+                            {activeJob.status === 'queued' && <Clock className="h-3 w-3 mr-1" />}
+                            {activeJob.status === 'completed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                            {activeJob.status === 'failed' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {activeJob.status === 'cancelled' && <StopCircle className="h-3 w-3 mr-1" />}
+                            {activeJob.status.toUpperCase()}
+                          </Badge>
+
+                          {(activeJob.status === 'queued' || activeJob.status === 'running') && (
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              disabled={isCancellingJob}
+                              onClick={() => handleCancelJob(activeJob.id)}
+                              className="text-[11px] py-1 px-2.5 h-7"
+                            >
+                              {isCancellingJob ? (
+                                <>
+                                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                  Cancelling...
+                                </>
+                              ) : (
+                                <>
+                                  <StopCircle className="h-3 w-3 mr-1" />
+                                  Cancel Job
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">
+                            {activeJob.status === 'running' && 'Processing frames outside HTTP request...'}
+                            {activeJob.status === 'queued' && 'Queued in worker pool, waiting for slot...'}
+                            {activeJob.status === 'completed' && 'Processing complete & persisted'}
+                            {activeJob.status === 'failed' && 'Job failed with error'}
+                            {activeJob.status === 'cancelled' && 'Job cancelled'}
+                          </span>
+                          <span className="font-mono text-cyan-400 font-semibold">
+                            {activeJob.progress !== null && activeJob.progress !== undefined
+                              ? `${(activeJob.progress * 100).toFixed(1)}%`
+                              : 'Indeterminate'}
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              activeJob.status === 'completed'
+                                ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                                : activeJob.status === 'failed'
+                                ? 'bg-red-500'
+                                : activeJob.status === 'cancelled'
+                                ? 'bg-slate-600'
+                                : 'bg-gradient-to-r from-cyan-500 to-blue-500 animate-pulse'
+                            }`}
+                            style={{
+                              width:
+                                activeJob.progress !== null && activeJob.progress !== undefined
+                                  ? `${Math.max(5, Math.min(100, activeJob.progress * 100))}%`
+                                  : activeJob.status === 'queued'
+                                  ? '10%'
+                                  : '100%',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Stats grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+                        <div className="p-2 rounded bg-slate-950/70 border border-slate-800/80">
+                          <span className="text-slate-500 block text-[10px]">FRAMES</span>
+                          <span className="text-slate-200">
+                            {activeJob.frames_processed} / {activeJob.total_frames ?? 'estimating'}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950/70 border border-slate-800/80">
+                          <span className="text-slate-500 block text-[10px]">SPEED</span>
+                          <span className="text-slate-200">
+                            {activeJob.processing_fps ? `${activeJob.processing_fps} FPS` : '--'}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950/70 border border-slate-800/80">
+                          <span className="text-slate-500 block text-[10px]">TYPE</span>
+                          <span className="text-cyan-400">{activeJob.analysis_type}</span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950/70 border border-slate-800/80">
+                          <span className="text-slate-500 block text-[10px]">PROVENANCE</span>
+                          <span className="text-slate-200">{activeJob.provenance_category}</span>
+                        </div>
+                      </div>
+
+                      {activeJob.error_message && (
+                        <p className="text-xs text-red-300 font-mono bg-red-950/30 p-2 rounded border border-red-900/50">
+                          Error: {activeJob.error_message}
+                        </p>
+                      )}
+
+                      {activeJob.status === 'completed' && activeJob.session_id && (
+                        <div className="pt-2 flex justify-end">
+                          <Link
+                            to={`/history`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 hover:text-emerald-200 hover:bg-emerald-900/50 text-xs font-medium transition-colors"
+                          >
+                            <span>View Result Analytics in History</span>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

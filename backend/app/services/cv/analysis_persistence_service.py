@@ -8,8 +8,9 @@ sessions, flow metrics, lane density results, and crossing events to PostgreSQL/
 """
 from datetime import datetime, timezone
 from pathlib import Path
+import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -33,7 +34,7 @@ from app.schemas.analysis import (
 )
 from app.services.cv.detector import Detector, YOLOVehicleDetector
 from app.services.cv.lane_analyzer import LaneAnalyzer, LaneRegion
-from app.services.cv.tracker import ByteTrackVehicleTracker, Tracker
+from app.services.cv.tracker import ByteTrackVehicleTracker, JobCancelledException, Tracker
 from app.services.cv.traffic_metrics_engine import TrafficMetricsEngine
 from app.services.cv.vehicle_counter import (
     CountingLine,
@@ -76,6 +77,8 @@ class AnalysisPersistenceService:
         video: Video,
         db: Session,
         request: AnalysisRunRequest,
+        progress_callback: Optional[Callable[[int, Optional[int], float], None]] = None,
+        cancellation_token: Optional[threading.Event] = None,
     ) -> AnalysisSession:
         """
         Executes the CV pipeline on the specified video and persists all results atomically.
@@ -203,6 +206,8 @@ class AnalysisPersistenceService:
                     detector=detector,
                     max_frames=max_frames,
                     target_fps=proc_fps,
+                    progress_callback=progress_callback,
+                    cancellation_token=cancellation_token,
                 )
 
                 # Stage 3: Virtual Line Crossing Counting
@@ -364,6 +369,17 @@ class AnalysisPersistenceService:
             return session
 
 
+        except JobCancelledException as cancel_err:
+            db.rollback()
+            session.status = "cancelled"
+            session.completed_at = utcnow()
+            session.error_message = "Analysis cancelled by user request."
+            try:
+                db.commit()
+            except Exception as commit_err:
+                logger.error("Failed to commit session cancellation status: %s", commit_err)
+            logger.info("Analysis execution cancelled for video %s (Session %s)", video.id, session.id)
+            raise
         except Exception as err:
             db.rollback()
             session.status = "failed"

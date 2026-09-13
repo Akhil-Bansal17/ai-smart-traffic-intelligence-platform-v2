@@ -102,3 +102,56 @@ export interface AnalysisInfoResponse {
   extrapolation_policy: string;
   density_policy: string;
 }
+
+// =========================================================================
+// Phase 17: Analysis Job Orchestration Types
+// =========================================================================
+
+export type AnalysisJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface AnalysisJob {
+  id: string;
+  video_id: string;
+  session_id?: string | null;
+  status: AnalysisJobStatus;
+  analysis_type: string;
+  progress?: number | null;
+  frames_processed: number;
+  total_frames?: number | null;
+  processing_fps?: number | null;
+  cancellation_requested: boolean;
+  error_code?: string | null;
+  error_message?: string | null;
+  provenance_category: string;
+  is_synthetic: boolean;
+  config_snapshot?: Record<string, any> | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at: string;
+}
+
+export interface AnalysisJobCreateRequest {
+  video_id: string;
+  analysis_type?: string;
+  confidence_threshold?: number;
+  processing_fps?: number;
+  max_frames?: number;
+  iou_threshold?: number;
+  counting_line?: any;
+  lanes?: any[];
+  persistence_threshold?: number;
+}
+
+export interface AnalysisJobListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  jobs: AnalysisJob[];
+}
+
+export interface AnalysisJobCancelResponse {
+  status: string;
+  message: string;
+  job: AnalysisJob;
+}

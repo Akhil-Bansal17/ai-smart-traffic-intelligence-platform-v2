@@ -17,7 +17,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+import threading
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import cv2
 import numpy as np
@@ -29,6 +30,11 @@ from app.services.cv.detector import BoundingBox, DetectionResult, Detector
 from app.services.cv.video_source import VideoSource
 
 logger = get_logger(__name__)
+
+
+class JobCancelledException(Exception):
+    """Raised when an analysis job is cancelled during CV execution."""
+    pass
 
 
 class TrackState(str, Enum):
@@ -219,6 +225,8 @@ class Tracker(ABC):
         detector: Detector,
         max_frames: Optional[int] = None,
         target_fps: Optional[int] = None,
+        progress_callback: Optional[Callable[[int, Optional[int], float], None]] = None,
+        cancellation_token: Optional[threading.Event] = None,
     ) -> VideoTrackingOutput:
         """Runs end-to-end detection and tracking over frames from a VideoSource."""
         pass
@@ -447,6 +455,8 @@ class ByteTrackVehicleTracker(Tracker):
         detector: Detector,
         max_frames: Optional[int] = None,
         target_fps: Optional[int] = None,
+        progress_callback: Optional[Callable[[int, Optional[int], float], None]] = None,
+        cancellation_token: Optional[threading.Event] = None,
     ) -> VideoTrackingOutput:
         """
         Executes pipeline: VideoSource -> Detector -> DetectionResult -> Tracker.
@@ -462,10 +472,30 @@ class ByteTrackVehicleTracker(Tracker):
 
         effective_max_frames = min(max_frames if max_frames is not None else 50, 300)
 
+        # Estimate total frames if metadata available
+        total_frames: Optional[int] = None
+        try:
+            meta = video_source.read_metadata()
+            source_fps = meta.fps if meta.fps > 0 else 30.0
+            sample_fps = target_fps if target_fps is not None else settings.processing_fps
+            step = max(1, int(round(source_fps / sample_fps))) if sample_fps > 0 else 1
+            if meta.frame_count > 0:
+                sampled_count = max(1, meta.frame_count // step)
+                total_frames = min(effective_max_frames, sampled_count)
+            else:
+                total_frames = effective_max_frames
+        except Exception:
+            total_frames = effective_max_frames
+
         for frame_idx, timestamp_sec, frame in video_source.extract_frames(
             target_fps=target_fps,
             max_frames=effective_max_frames,
         ):
+            # Check for cooperative cancellation
+            if cancellation_token and cancellation_token.is_set():
+                logger.info("Job cancellation detected in tracker loop at frame %s", frame_idx)
+                raise JobCancelledException("Analysis job was cancelled by user request.")
+
             # Phase 5 detector produces DetectionResults (no track_id)
             detections = detector.detect(
                 frame=frame,
@@ -493,7 +523,30 @@ class ByteTrackVehicleTracker(Tracker):
                 preview_frame_b64 = self._generate_annotated_preview(frame, tracked_objects)
                 preview_captured = True
 
+            # Report progress periodically
+            frames_done = len(frame_results)
+            current_elapsed_sec = time.perf_counter() - start_time
+            current_fps = round(frames_done / current_elapsed_sec, 2) if current_elapsed_sec > 0 else 0.0
+            if progress_callback and (
+                frames_done % settings.job_progress_update_interval_frames == 0
+                or frames_done == 1
+                or (total_frames is not None and frames_done >= total_frames)
+            ):
+                try:
+                    progress_callback(frames_done, total_frames, current_fps)
+                except Exception as cb_err:
+                    logger.warning("Progress callback failed: %s", cb_err)
+
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        # Final progress callback invocation on loop completion
+        if progress_callback:
+            final_elapsed_sec = time.perf_counter() - start_time
+            final_fps = round(len(frame_results) / final_elapsed_sec, 2) if final_elapsed_sec > 0 else 0.0
+            try:
+                progress_callback(len(frame_results), total_frames, final_fps)
+            except Exception as cb_err:
+                logger.warning("Final progress callback failed: %s", cb_err)
 
         # Calculate tracks by vehicle class
         tracks_by_class: Dict[str, int] = {cls_name: 0 for cls_name in sorted(detector.target_classes)}

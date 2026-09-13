@@ -27,12 +27,18 @@ import {
   getAnalysisSessions,
   getAnalysisSessionDetail,
   deleteAnalysisSession,
+  listAnalysisJobs,
+  cancelAnalysisJob,
 } from '@/api/analysis';
 import {
   AnalysisSessionSummary,
   AnalysisSessionDetail,
+  AnalysisJob,
 } from '@/types/analysis';
 import { Link } from 'react-router-dom';
+import {
+  Cpu,
+} from 'lucide-react';
 
 export function HistoryPage() {
   const [sessions, setSessions] = useState<AnalysisSessionSummary[]>([]);
@@ -55,6 +61,32 @@ export function HistoryPage() {
   // Delete State
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Active Tab: sessions vs jobs
+  const [activeTab, setActiveTab] = useState<'sessions' | 'jobs'>('sessions');
+
+  // Background Analysis Jobs State
+  const [jobs, setJobs] = useState<AnalysisJob[]>([]);
+  const [totalJobs, setTotalJobs] = useState<number>(0);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [jobStatusFilter, setJobStatusFilter] = useState<string>('all');
+
+  const fetchJobs = useCallback(async () => {
+    setIsLoadingJobs(true);
+    setJobsError(null);
+    try {
+      const response = await listAnalysisJobs(100, 0, jobStatusFilter);
+      setJobs(response.jobs || []);
+      setTotalJobs(response.total || 0);
+    } catch (err: any) {
+      console.error('Failed to load analysis jobs:', err);
+      setJobsError(err?.message || 'Failed to fetch analysis jobs from database.');
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  }, [jobStatusFilter]);
+
   const fetchSessions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -72,7 +104,20 @@ export function HistoryPage() {
 
   useEffect(() => {
     fetchSessions();
-  }, [fetchSessions]);
+    fetchJobs();
+  }, [fetchSessions, fetchJobs]);
+
+  const handleCancelJobInHistory = async (jobId: string) => {
+    setCancellingJobId(jobId);
+    try {
+      await cancelAnalysisJob(jobId);
+      await fetchJobs();
+    } catch (err: any) {
+      alert(`Failed to cancel job: ${err?.message || 'Server error'}`);
+    } finally {
+      setCancellingJobId(null);
+    }
+  };
 
   const handleOpenDetail = async (sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -159,22 +204,241 @@ export function HistoryPage() {
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <button
-            onClick={fetchSessions}
-            disabled={isLoading}
+            onClick={() => {
+              if (activeTab === 'sessions') fetchSessions();
+              else fetchJobs();
+            }}
+            disabled={isLoading || isLoadingJobs}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`h-3.5 w-3.5 text-cyan-400 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 text-cyan-400 ${(isLoading || isLoadingJobs) ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <Link
-            to="/analytics"
+            to="/video-analysis"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-colors shadow-sm"
           >
             <Activity className="h-3.5 w-3.5" />
-            <span>Run New Analysis</span>
+            <span>Launch Analysis</span>
           </Link>
         </div>
       </div>
+
+      {/* Tab Navigation Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+        <button
+          onClick={() => setActiveTab('sessions')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+            activeTab === 'sessions'
+              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+          }`}
+        >
+          <History className="h-4 w-4" />
+          <span>Historical Sessions ({totalSessions})</span>
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('jobs');
+            fetchJobs();
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+            activeTab === 'jobs'
+              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+          }`}
+        >
+          <Cpu className="h-4 w-4" />
+          <span>Background Analysis Jobs ({totalJobs})</span>
+          <Badge variant="info" size="sm">Phase 17</Badge>
+        </button>
+      </div>
+
+      {activeTab === 'jobs' ? (
+        /* Analysis Jobs Tab Content */
+        <div className="space-y-4">
+          <Card className="border-slate-800 bg-slate-900/60 p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <Filter className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Filter by Status:</span>
+                <select
+                  value={jobStatusFilter}
+                  onChange={(e) => setJobStatusFilter(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-slate-200 text-xs focus:outline-none"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="queued">Queued</option>
+                  <option value="running">Running</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <span className="text-xs text-slate-400">
+                Showing {jobs.length} jobs (In-process bounded worker pool)
+              </span>
+            </div>
+          </Card>
+
+          {jobsError && (
+            <div className="p-4 rounded-xl border border-red-500/30 bg-red-950/30 text-red-300 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <span>{jobsError}</span>
+              </div>
+              <button
+                onClick={fetchJobs}
+                className="px-2.5 py-1 bg-red-900/40 hover:bg-red-800/60 rounded border border-red-700/50 text-red-200 text-[11px]"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          <Card className="border-slate-800 bg-slate-900/60 overflow-hidden">
+            <CardHeader className="border-b border-slate-800 px-6 py-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
+                <Cpu className="h-4 w-4 text-cyan-400" />
+                Analysis Jobs Queue & Execution History ({jobs.length})
+              </CardTitle>
+              <span className="text-[11px] text-slate-400 font-mono">MAX_CONCURRENT_JOBS: 2</span>
+            </CardHeader>
+
+            {isLoadingJobs ? (
+              <div className="p-12 text-center space-y-3">
+                <RefreshCw className="h-7 w-7 text-cyan-400 animate-spin mx-auto" />
+                <p className="text-xs text-slate-400">Loading analysis jobs...</p>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <Cpu className="h-8 w-8 text-slate-600 mx-auto" />
+                <p className="text-sm font-medium text-slate-300">No analysis jobs found</p>
+                <p className="text-xs text-slate-500">Submit a background analysis job from the Video Analysis page to see it orchestrated here.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 font-medium">
+                    <tr>
+                      <th className="px-5 py-3">Job ID</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Progress</th>
+                      <th className="px-4 py-3">Frames</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Created</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {jobs.map((job) => (
+                      <tr key={job.id} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="px-5 py-3 font-mono text-cyan-400">
+                          <div className="flex items-center gap-1.5">
+                            <span>{job.id.slice(0, 8)}...</span>
+                            <button
+                              onClick={() => handleCopyId(job.id)}
+                              className="text-slate-500 hover:text-white"
+                              title="Copy ID"
+                            >
+                              {copiedId === job.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant={
+                              job.status === 'completed'
+                                ? 'success'
+                                : job.status === 'running'
+                                ? 'default'
+                                : job.status === 'queued'
+                                ? 'warning'
+                                : job.status === 'failed'
+                                ? 'danger'
+                                : 'outline'
+                            }
+                            size="sm"
+                          >
+                            {job.status === 'running' && <RefreshCw className="h-3 w-3 mr-1 animate-spin" />}
+                            {job.status.toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="w-28 space-y-1">
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span>
+                                {job.progress !== null && job.progress !== undefined
+                                  ? `${(job.progress * 100).toFixed(0)}%`
+                                  : job.status === 'queued'
+                                  ? 'Queued'
+                                  : 'Indeterminate'}
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                              <div
+                                className={`h-full ${
+                                  job.status === 'completed'
+                                    ? 'bg-emerald-400'
+                                    : job.status === 'failed'
+                                    ? 'bg-red-500'
+                                    : job.status === 'cancelled'
+                                    ? 'bg-slate-600'
+                                    : 'bg-cyan-400 animate-pulse'
+                                }`}
+                                style={{
+                                  width:
+                                    job.progress !== null && job.progress !== undefined
+                                      ? `${Math.max(5, Math.min(100, job.progress * 100))}%`
+                                      : job.status === 'queued'
+                                      ? '10%'
+                                      : '100%',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-slate-300">
+                          {job.frames_processed} / {job.total_frames ?? '--'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">{job.analysis_type}</td>
+                        <td className="px-4 py-3 text-slate-400 text-[11px]">
+                          {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {(job.status === 'queued' || job.status === 'running') && (
+                              <button
+                                onClick={() => handleCancelJobInHistory(job.id)}
+                                disabled={cancellingJobId === job.id}
+                                className="px-2 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium transition-colors"
+                              >
+                                {cancellingJobId === job.id ? 'Cancelling...' : 'Cancel'}
+                              </button>
+                            )}
+                            {job.status === 'completed' && job.session_id && (
+                              <button
+                                onClick={() => handleOpenDetail(job.session_id!)}
+                                className="px-2.5 py-1 rounded bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-800/60 text-cyan-300 text-[11px] font-medium transition-colors flex items-center gap-1"
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Results</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : (
+        /* Historical Sessions Tab Content */
+        <>
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -444,6 +708,8 @@ export function HistoryPage() {
           </div>
         )}
       </Card>
+      </>
+      )}
 
       {/* Session Detail Modal */}
       {selectedSessionId && (

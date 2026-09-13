@@ -25,13 +25,30 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting up in '%s' environment", settings.environment)
     try:
         from app.db.base import Base
-        from app.db.session import engine
+        from app.db.session import SessionLocal, engine
+        from app.services.cv.job_manager import get_analysis_job_manager
+
         Base.metadata.create_all(bind=engine)
         logger.info("Database schema synchronized")
+
+        # Phase 17: Recover any stale RUNNING jobs left from prior process crash
+        startup_db = SessionLocal()
+        try:
+            manager = get_analysis_job_manager()
+            manager.recover_stale_jobs(startup_db)
+        finally:
+            startup_db.close()
     except Exception as err:
-        logger.warning("Database schema synchronization skipped: %s", err)
+        logger.warning("Database schema synchronization / startup recovery skipped: %s", err)
+
     yield
+
     logger.info("Shutting down")
+    try:
+        from app.services.cv.job_manager import get_analysis_job_manager
+        get_analysis_job_manager().shutdown(wait=False)
+    except Exception as err:
+        logger.warning("Job manager shutdown error: %s", err)
 
 
 app = FastAPI(

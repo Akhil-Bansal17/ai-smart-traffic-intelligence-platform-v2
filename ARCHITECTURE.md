@@ -354,6 +354,31 @@ The Emergency Corridor Simulation module models coordinated arterial signal prog
 - `data_bridge.py`: `CorridorDataBridge` bridging live/recorded database sessions to corridor nodes with strict provenance segregation.
 - `corridor_simulation.py`: SQLAlchemy ORM entity `EmergencyCorridorSimulationRun` and Alembic migration `0007_create_emergency_corridor_tables.py`.
 
+## 8.3. Analysis Job Orchestration & Real-Time Processing Foundation (Phase 17)
+
+The Analysis Job Orchestration module transitions CPU-intensive video processing from synchronous, blocking HTTP requests into an asynchronous, non-blocking Background Job execution model backed by an in-process worker pool.
+
+### Architectural Components (`backend/app/services/cv/`):
+- `job_manager.py`: `AnalysisJobManager` managing a bounded `ThreadPoolExecutor` (default: 2 workers, configurable 1–10), thread-safe cancellation event registries, active job tracking, and dynamic session factory injection.
+- `models/analysis_job.py`: `AnalysisJob` ORM model tracking job state, execution progress, frame counters, processing FPS, error codes, and strict provenance lineage.
+- **State Machine**:
+  - `QUEUED`: Job received and submitted to worker pool queue.
+  - `RUNNING`: Worker thread picked up job and started CV pipeline execution.
+  - `COMPLETED`: Analysis finished normally; `session_id` and metrics linked.
+  - `FAILED`: Execution failed or terminated with error; error code and safe message recorded.
+  - `CANCELLED`: User cooperatively cancelled the job prior to or during execution.
+  - Terminal states (`COMPLETED`, `FAILED`, `CANCELLED`) are strictly immutable.
+- **Cooperative Cancellation**:
+  - Worker threads and CV pipeline (`Tracker.track_video`, `ByteTrackVehicleTracker`) accept a `threading.Event` cancellation token.
+  - At each frame iteration, the token is checked. When signaled, the tracker loop terminates gracefully, cleans up resources, and records `status = 'cancelled'`.
+- **Progress Tracking & Data Honesty**:
+  - Honest frame-level progress reporting (`frames_processed / total_frames`).
+  - Indeterminate progress handling: when total frame count cannot be accurately determined, `progress` is reported as `null` with actual `frames_processed` rather than fabricated percentages.
+- **Startup Stale-Job Recovery**:
+  - During application startup (`lifespan`), any orphaned `RUNNING` jobs left from previous process crashes/restarts are automatically transitioned to `FAILED` with error code `process_restarted_stale_job`.
+- **Concurrency & Conflict Protection**:
+  - Duplicate active job rejection: submitting a job for a video that already has an active `QUEUED` or `RUNNING` job returns HTTP 409 Conflict (`duplicate_active_job`).
+
 ## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
 
 Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimization, Emergency Simulation, History, Settings, System Information.

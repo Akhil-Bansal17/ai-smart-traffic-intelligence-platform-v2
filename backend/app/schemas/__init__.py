@@ -7,6 +7,12 @@ from app.schemas.analysis import (
     LaneResultRecordSchema,
     TrafficMetricsRecordSchema,
 )
+from app.schemas.analysis_job import (
+    AnalysisJobCancelResponse,
+    AnalysisJobCreateRequest,
+    AnalysisJobListResponse,
+    AnalysisJobResponse,
+)
 from app.schemas.analytics import (
     AnalyticsInfoResponse,
     AnalyticsRequest,
@@ -131,6 +137,10 @@ __all__ = [
     "AnalysisSessionDetailResponse",
     "AnalysisSessionListResponse",
     "AnalysisInfoResponse",
+    "AnalysisJobCreateRequest",
+    "AnalysisJobResponse",
+    "AnalysisJobListResponse",
+    "AnalysisJobCancelResponse",
     "TrafficMetricsRecordSchema",
     "LaneResultRecordSchema",
     "PredictionInfoResponse",

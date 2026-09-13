@@ -5,6 +5,10 @@
 import { apiClient } from './client';
 import {
   AnalysisInfoResponse,
+  AnalysisJob,
+  AnalysisJobCancelResponse,
+  AnalysisJobCreateRequest,
+  AnalysisJobListResponse,
   AnalysisSessionDetail,
   AnalysisSessionListResponse,
 } from '@/types/analysis';
@@ -18,8 +22,10 @@ export async function getAnalysisSessions(
   videoId?: string
 ): Promise<AnalysisSessionListResponse> {
   const params = new URLSearchParams();
-  params.set('page', page.toString());
-  params.set('page_size', pageSize.toString());
+  const limit = pageSize;
+  const offset = (page - 1) * pageSize;
+  params.set('limit', limit.toString());
+  params.set('offset', offset.toString());
   if (videoId) {
     params.set('video_id', videoId);
   }
@@ -63,4 +69,61 @@ export async function deleteAnalysisSession(
  */
 export async function getAnalysisInfo(): Promise<AnalysisInfoResponse> {
   return apiClient<AnalysisInfoResponse>('/api/v1/analysis/info');
+}
+
+// =========================================================================
+// Phase 17: Analysis Job Orchestration API Functions
+// =========================================================================
+
+/**
+ * Submits an asynchronous video analysis background job.
+ */
+export async function createAnalysisJob(
+  request: AnalysisJobCreateRequest
+): Promise<AnalysisJob> {
+  return apiClient<AnalysisJob>('/api/v1/analysis/jobs', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Retrieves the status and progress of an analysis job.
+ */
+export async function getAnalysisJob(
+  jobId: string
+): Promise<AnalysisJob> {
+  return apiClient<AnalysisJob>(`/api/v1/analysis/jobs/${jobId}`);
+}
+
+/**
+ * Lists historical and active analysis jobs with pagination and filtering.
+ */
+export async function listAnalysisJobs(
+  limit: number = 50,
+  offset: number = 0,
+  status?: string,
+  videoId?: string
+): Promise<AnalysisJobListResponse> {
+  const params = new URLSearchParams();
+  params.set('limit', limit.toString());
+  params.set('offset', offset.toString());
+  if (status && status !== 'all') {
+    params.set('status', status);
+  }
+  if (videoId) {
+    params.set('video_id', videoId);
+  }
+  return apiClient<AnalysisJobListResponse>(`/api/v1/analysis/jobs?${params.toString()}`);
+}
+
+/**
+ * Requests cooperative cancellation of an active analysis job.
+ */
+export async function cancelAnalysisJob(
+  jobId: string
+): Promise<AnalysisJobCancelResponse> {
+  return apiClient<AnalysisJobCancelResponse>(`/api/v1/analysis/jobs/${jobId}/cancel`, {
+    method: 'POST',
+  });
 }

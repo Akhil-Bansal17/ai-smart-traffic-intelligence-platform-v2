@@ -19,6 +19,7 @@ from app.core.exceptions import AppException
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.analysis import AnalysisSession
+from app.models.analysis_job import AnalysisJob
 from app.models.video import Video
 from app.schemas.analysis import (
     AnalysisInfoResponse,
@@ -27,7 +28,14 @@ from app.schemas.analysis import (
     AnalysisSessionListResponse,
     AnalysisSessionSummarySchema,
 )
+from app.schemas.analysis_job import (
+    AnalysisJobCancelResponse,
+    AnalysisJobCreateRequest,
+    AnalysisJobListResponse,
+    AnalysisJobResponse,
+)
 from app.services.cv.analysis_persistence_service import AnalysisPersistenceService
+from app.services.cv.job_manager import AnalysisJobManager, get_analysis_job_manager
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -51,6 +59,96 @@ def get_persistence_service() -> AnalysisPersistenceService:
 def get_analysis_info() -> AnalysisInfoResponse:
     """Returns database persistence metadata, supported analysis types, and schema rules."""
     return AnalysisInfoResponse()
+
+
+# =========================================================================
+# Phase 17: Analysis Job Orchestration Endpoints
+# =========================================================================
+
+
+@router.post(
+    "/jobs",
+    response_model=AnalysisJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create and queue an asynchronous video analysis job",
+    description="Submits a video for long-running computer vision processing in the background without blocking the HTTP request.",
+)
+def create_analysis_job(
+    request: AnalysisJobCreateRequest,
+    db: Session = Depends(get_db),
+    manager: AnalysisJobManager = Depends(get_analysis_job_manager),
+) -> AnalysisJobResponse:
+    job = manager.submit_job(db=db, request=request)
+    return AnalysisJobResponse.model_validate(job)
+
+
+@router.get(
+    "/jobs",
+    response_model=AnalysisJobListResponse,
+    summary="List analysis jobs (paginated)",
+    description="Returns a paginated list of asynchronous analysis background jobs ordered by creation time descending.",
+)
+def list_analysis_jobs(
+    limit: int = Query(default=50, ge=1, le=200, description="Maximum jobs to return"),
+    offset: int = Query(default=0, ge=0, description="Number of jobs to skip"),
+    status_filter: Optional[str] = Query(default=None, alias="status", description="Filter by job status"),
+    video_id: Optional[str] = Query(default=None, description="Filter by video ID"),
+    db: Session = Depends(get_db),
+) -> AnalysisJobListResponse:
+    query = db.query(AnalysisJob)
+    if status_filter:
+        query = query.filter(AnalysisJob.status == status_filter)
+    if video_id:
+        query = query.filter(AnalysisJob.video_id == video_id)
+
+    total = query.count()
+    jobs = query.order_by(AnalysisJob.created_at.desc()).offset(offset).limit(limit).all()
+
+    return AnalysisJobListResponse(
+        total=total,
+        limit=limit,
+        offset=offset,
+        jobs=[AnalysisJobResponse.model_validate(j) for j in jobs],
+    )
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=AnalysisJobResponse,
+    summary="Get analysis job status and progress",
+    description="Retrieves the real-time execution status, progress percentage, frame counters, and completion details for an analysis job.",
+)
+def get_analysis_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+) -> AnalysisJobResponse:
+    job = db.query(AnalysisJob).filter(AnalysisJob.id == job_id).first()
+    if not job:
+        raise AppException(
+            f"Analysis job with ID '{job_id}' not found.",
+            code="job_not_found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return AnalysisJobResponse.model_validate(job)
+
+
+@router.post(
+    "/jobs/{job_id}/cancel",
+    response_model=AnalysisJobCancelResponse,
+    summary="Cancel a queued or running analysis job",
+    description="Requests cooperative cancellation of an active analysis job. Rejects cancellation of terminal jobs.",
+)
+def cancel_analysis_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    manager: AnalysisJobManager = Depends(get_analysis_job_manager),
+) -> AnalysisJobCancelResponse:
+    job = manager.cancel_job(db=db, job_id=job_id)
+    return AnalysisJobCancelResponse(
+        status="cancelled" if job.status == "cancelled" else "cancellation_requested",
+        message=f"Analysis job '{job_id}' cancellation processed.",
+        job=AnalysisJobResponse.model_validate(job),
+    )
 
 
 @router.post(

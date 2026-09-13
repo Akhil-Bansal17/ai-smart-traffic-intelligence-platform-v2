@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     anomaly_density_spike_threshold: float = 0.00035
     anomaly_min_buckets_for_baseline: int = 2
 
+    # --- Analysis Job Orchestration (Phase 17) ---
+    max_concurrent_analysis_jobs: int = 2
+    job_progress_update_interval_frames: int = 5
+
     @field_validator("environment")
     @classmethod
     def validate_environment(cls, v: str) -> str:
@@ -156,6 +160,20 @@ class Settings(BaseSettings):
     def validate_density_spike(cls, v: float) -> float:
         if v <= 0.0:
             raise ValueError(f"anomaly_density_spike_threshold must be positive, got {v}")
+        return v
+
+    @field_validator("max_concurrent_analysis_jobs")
+    @classmethod
+    def validate_max_concurrent_jobs(cls, v: int) -> int:
+        if v < 1 or v > 10:
+            raise ValueError(f"max_concurrent_analysis_jobs must be between 1 and 10, got {v}")
+        return v
+
+    @field_validator("job_progress_update_interval_frames")
+    @classmethod
+    def validate_progress_interval(cls, v: int) -> int:
+        if v < 1 or v > 100:
+            raise ValueError(f"job_progress_update_interval_frames must be between 1 and 100, got {v}")
         return v
 
     @model_validator(mode="after")

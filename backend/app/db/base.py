@@ -9,6 +9,7 @@ from app.models.analysis import (  # noqa: F401
     LaneResultRecord,
     TrafficMetricsRecord,
 )
+from app.models.analysis_job import AnalysisJob  # noqa: F401
 from app.models.anomaly import AnomalyEvent  # noqa: F401
 from app.models.corridor_simulation import EmergencyCorridorSimulationRun  # noqa: F401
 from app.models.prediction import (  # noqa: F401
@@ -26,6 +27,7 @@ __all__ = [
     "LaneResultRecord",
     "CrossingEventRecord",
     "AnomalyEvent",
+    "AnalysisJob",
     "PredictionRun",
     "PredictionItem",
     "SignalSimulationRun",
