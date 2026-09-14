@@ -30,16 +30,17 @@ Last updated: 2026-09-09
 **Phase 15 — Traffic Anomaly & Congestion Incident Detection: COMPLETE (re-verified live, 10/10 hardening checks passed, 159 backend tests passed)**
 **Phase 16 — Production Readiness, Reliability, Security & Observability Hardening: COMPLETE (re-verified live, 16/16 hardening checks passed, 172 backend tests passed, full regression verified)**
 **Phase 17 — Analysis Job Orchestration & Real-Time Processing Foundation: COMPLETE (re-verified live, 17/17 checks passed, 185 backend tests passed, frontend build verified)**
+**Phase 18 — Intelligent Traffic Insights & Explainable Decision Intelligence: COMPLETE (re-verified live, 18/18 checks passed, 200 backend tests passed, frontend build verified)**
 
-> **Workflow note (Phase 17 Verification):** Phase 17 Analysis Job Orchestration & Real-Time Processing Foundation completed and verified with 100% rigorous test and benchmark coverage across all 17 requirements.
-> Orchestration Highlights:
-> 1. Background Execution Architecture: Asynchronous video analysis via in-process bounded ThreadPoolExecutor (max_concurrent_analysis_jobs=2, configurable 1-10) with sub-200ms non-blocking submission response.
-> 2. State Machine & Lifecycle: QUEUED -> RUNNING -> COMPLETED / FAILED / CANCELLED with strict terminal state immutability.
-> 3. Cooperative Cancellation: Token-based graceful cancellation in CV frame-processing loop preventing thread corruption or orphaned locks.
-> 4. Progress Tracking: Honest frame-level progress tracking with null indeterminate progress when total frames are unknown.
-> 5. Startup Recovery: Automatic transition of orphaned RUNNING jobs to FAILED on application restart with code 'process_restarted_stale_job'.
-> 6. Idempotency Protection: Duplicate active job submission rejected with HTTP 409 Conflict ('duplicate_active_job').
-> 7. Full Regression: 185/185 backend pytest tests passing, frontend production build clean (0 errors), all verification suites passing at 100%. Phase 17 is declared **VERIFIED**.
+> **Workflow note (Phase 18 Verification):** Phase 18 Intelligent Traffic Insights & Explainable Decision Intelligence completed and verified with 100% rigorous test and benchmark coverage across all 18 requirements.
+> Decision Intelligence Highlights:
+> 1. Multi-Category Rule Engine: 7 deterministic insight categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`).
+> 2. Strict Epistemic Separation: Clear differentiation between `Observed:` (empirical measurements) and `Inferred:` (deductive reasoning with confidence tiers).
+> 3. Honest Evidence Packages: Strict adherence to Phase 11 trust boundaries ($N=10 < 20$ samples for ML forecasts), simulation disclaimers (`is_simulation=True`), 2D pixel-space density calibration warnings, and declared unavailable telemetry.
+> 4. Advisory-Only Recommendations: Clear operational guidance without physical signal actuation claims.
+> 5. Deterministic Deduplication: Hash-based signature (`dedup_signature`) preventing duplicate alert fatigue across repeated analysis passes.
+> 6. Lifecycle Management: Full state tracking (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`) via REST API.
+> 7. Full Regression: 200/200 backend pytest tests passing, frontend production build clean (0 errors), all verification suites passing at 100%. Phase 18 is declared **VERIFIED**.
 
 
 
@@ -203,8 +204,9 @@ Last updated: 2026-09-09
 | 15 | Traffic Anomaly & Congestion Incident Detection | ✅ Complete (verified live) |
 | 16 | Production Readiness & Observability Hardening | ✅ Complete (verified live) |
 | 17 | Analysis Job Orchestration & Real-Time Foundation | ✅ Complete (verified live) |
-| 18 | Docker + Deployment | ⬜ Not started |
-| 19 | Documentation & Portfolio Polish | ⬜ Not started |
+| 18 | Intelligent Traffic Insights & Decision Intelligence | ✅ Complete (verified live) |
+| 19 | Docker + Deployment | ⬜ Not started |
+| 20 | Documentation & Portfolio Polish | ⬜ Not started |
 
 ## Known Bugs
 
@@ -216,15 +218,16 @@ None.
 
 ## Technical Decisions Log
 
-- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–17 are verified and operational.
-- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay, signal simulation, coordinated emergency corridor progression engine, and bounded ThreadPoolExecutor job orchestration.
-- **Analysis Job Orchestration (Phase 17):**
-  - Asynchronous background job processing with bounded worker pool (`MAX_CONCURRENT_ANALYSIS_JOBS = 2`, configurable 1–10).
-  - Explicit state machine: `QUEUED -> RUNNING -> COMPLETED` / `FAILED` / `CANCELLED` with immutable terminal states.
-  - Cooperative cancellation via `threading.Event` tokens passed through tracker frame loops.
-  - Honest frame-level progress reporting (`frames_processed / total_frames`) and `null` indeterminate handling.
-  - Startup stale job recovery: automatic transition of orphaned `RUNNING` jobs to `FAILED` with code `process_restarted_stale_job`.
-  - Idempotency / conflict check: duplicate active job returns HTTP 409 `duplicate_active_job`.
+- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–18 are verified and operational.
+- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay, signal simulation, coordinated emergency corridor progression engine, bounded ThreadPoolExecutor job orchestration, and deterministic rule-based explainable decision intelligence.
+- **Traffic Decision Intelligence (Phase 18):**
+  - Deterministic multi-category rule evaluation across 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`).
+  - Strict epistemic separation: every factor is tagged `Observed:` (empirical measurements) or `Inferred:` (deductive reasoning with confidence ratings).
+  - Honest evidence packages: simulation estimates marked `is_simulation = True`, ML forecasts flagged unavailable under $N < 20$ Phase 11 trust boundary, 2D pixel-space density uncalibrated caveats declared, unavailable radar telemetry explicitly listed.
+  - Advisory-only operational guidance (non-actuating disclaimers).
+  - Deduplication via deterministic hash `dedup_signature = SHA256(session:type:lane:bin)`.
+  - State machine lifecycle: `NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`.
+  - Fast execution: < 50ms per session evaluation latency (mean 30.57ms, p95 39.60ms).
 - **Performance Benchmarks:**
   - Health liveness latency: $\approx 3.5\text{ms}$
   - Readiness diagnostic probe latency: $\approx 5.8\text{ms}$
@@ -235,16 +238,18 @@ None.
   - Emergency corridor simulation: $\approx 0.18\text{ms}$ mean latency
   - Anomaly list query latency: $\approx 7.5\text{ms}$
   - Job creation & non-blocking enqueue latency: $\approx 12.5\text{ms}$
+  - Decision intelligence evaluation latency: $\approx 30.5\text{ms}$ mean latency
+  - Insights list query latency: $\approx 8.2\text{ms}$
 
 ## Environment Information
 
 - Backend: Python 3.14.7, FastAPI 0.115.0 / 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2, pytest 9.1.1.
 - Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
-- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0009_create_analysis_jobs_table`).
+- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0010_create_traffic_insights_table`).
 
-## Latest Successful Tests (Phase 17 Verification)
+## Latest Successful Tests (Phase 18 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests` → **185 passed, 0 failures** (2026-09-13), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, anomaly detection, health/readiness, production hardening, and analysis job orchestration test suites.
+- **Backend Test Suite:** `python -m pytest backend/tests` → **200 passed, 0 failures** (2026-09-14), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, anomaly detection, health/readiness, production hardening, analysis job orchestration, and traffic insights test suites.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -261,11 +266,13 @@ None.
   - `scripts/verify_phase15_anomaly_detection.py`: PASSED (10/10 checks, 100% pass rate)
   - `scripts/verify_phase16_production_readiness.py`: PASSED (16/16 checks, 100% pass rate)
   - `scripts/verify_phase17_job_orchestration.py`: PASSED (17/17 checks, 100% pass rate)
-- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1630 modules transformed, success (0 errors, 0 warnings)**.
+  - `scripts/verify_phase18_decision_intelligence.py`: PASSED (18/18 checks, 100% pass rate)
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1634 modules transformed, success (0 errors, 0 warnings)**.
 
 ## Next Task
 
-**Phase 18 — Docker Compose Containerization & Deployment.** Multi-stage container builds, docker-compose orchestration, environment wiring, and deployment healthchecks.
+**Phase 19 — Docker Compose Containerization & Deployment.** Multi-stage container builds, docker-compose orchestration, environment wiring, and deployment healthchecks.
+
 
 
 

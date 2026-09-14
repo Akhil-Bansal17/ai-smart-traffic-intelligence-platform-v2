@@ -15,6 +15,7 @@ from app.api.v1 import (
     detection,
     emergency_corridor,
     health,
+    insights,
     lane_analysis,
     predictions,
     signal_optimization,
@@ -36,5 +37,6 @@ api_router.include_router(signal_optimization.router, prefix="/signal-optimizati
 api_router.include_router(emergency_corridor.router, prefix="/emergency-corridor", tags=["emergency-corridor"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(anomalies.router, prefix="/anomalies", tags=["anomalies"])
+api_router.include_router(insights.router, prefix="/insights", tags=["insights"])
 
 

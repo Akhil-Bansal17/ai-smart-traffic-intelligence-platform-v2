@@ -379,13 +379,39 @@ The Analysis Job Orchestration module transitions CPU-intensive video processing
 - **Concurrency & Conflict Protection**:
   - Duplicate active job rejection: submitting a job for a video that already has an active `QUEUED` or `RUNNING` job returns HTTP 409 Conflict (`duplicate_active_job`).
 
+## 8.4. Traffic Decision Intelligence & Explainable Insights (Phase 18)
+
+The Traffic Decision Intelligence subsystem acts as a deterministic reasoning and synthesis layer on top of persisted computer vision metrics, lane analyses, anomaly events, and simulation projections. It translates raw analytical measurements into actionable, explainable operational insights with strict epistemic separation and honest data boundaries.
+
+### Core Architectural Principles:
+1. **Deterministic Rule Evaluation**: Insight generation is strictly rule-based and deterministic. Given identical database inputs, the engine produces identical candidates, root-cause statements, and recommendations.
+2. **Strict Epistemic Separation**:
+   - `Observed:` Concrete, empirical measurements extracted directly from sensor and tracking records (e.g. measured peak occupancy, flow drop percentage, lane volume ratios, polygon pixel areas).
+   - `Inferred:` Deductive logical reasoning explaining underlying traffic dynamics, bottlenecks, or driver behavior, tagged with an explicit confidence rating (`high`, `medium`, `low`).
+3. **Honest Evidence Packages & Trust Boundaries**:
+   - Simulation Transparency: Offline simulation results from Phase 12/13 are explicitly labeled `is_simulation = True` with mandatory "simulation indicates" phrasing and non-actuation disclaimers.
+   - ML Forecast Honesty: Respects Phase 11 trust boundary ($N=10 < 20$ verified real-world samples), explicitly reporting forecasting as unavailable due to insufficient sample threshold rather than generating hallucinated predictions.
+   - Pixel-Space Caveats: 2D image-plane densities are explicitly declared uncalibrated to physical ground area.
+   - Missing Telemetry Declarations: Unavailable physical telemetry (radar speeds, controller actuation loops, V2X broadcasts) is explicitly enumerated.
+4. **Advisory-Only Operational Guidance**: All recommendations are non-actuating decision-support guidance for human traffic operators.
+5. **Deterministic Deduplication**: Uses a SHA-256 hash `dedup_signature = SHA256(session:type:lane:bin)` to prevent duplicate alert fatigue across repeated analysis passes.
+
+### Subsystem Components (`backend/app/services/insights/`):
+- `engine.py`: `DecisionIntelligenceEngine` orchestrating session data retrieval with eager ORM joins (`joinedload`), deduplication updates, candidate generation, and lifecycle status transitions.
+- `rules.py`: Rule evaluators covering all 7 core categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`).
+- `root_cause.py`: Epistemic factor generators enforcing `Observed:` and `Inferred:` prefixes and schemas.
+- `severity.py`: Mathematical severity rating evaluators (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`).
+- `recommendations.py`: Deterministic advisory recommendation generators.
+- `evidence.py`: Evidence package aggregator and limitation compiler.
+- `models/insight.py`: `TrafficInsight` SQLAlchemy ORM entity with status lifecycle (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`) and cascading session foreign keys.
+
 ## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
 
 Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimization, Emergency Simulation, History, Settings, System Information.
 
 - `src/api/` — typed API client (one function per backend endpoint, no ad-hoc fetches scattered through components).
 - `src/pages/` — one file per page above, composed from `src/components/`.
-- `src/components/` — reusable chart wrappers (Recharts/Plotly), KPI cards, the video-annotation overlay, lane-editor widget.
+- `src/components/` — reusable chart wrappers (Recharts/Plotly), KPI cards, the video-annotation overlay, lane-editor widget, and decision intelligence widgets (`InsightsWidget`, `InsightCard`, `InsightDetailModal`).
 - Real data by default; any demo/mocked view is explicitly labeled "Demo data" in the UI, per the no-fake-results rule.
 
 ## 10. Security Model (see SECURITY.md for the living checklist)
@@ -398,8 +424,9 @@ Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimiz
 
 ## 11. Configuration Strategy
 
-Runtime-tunable values (confidence thresholds, frame-skip rate, processing FPS, density weights, lane polygons, counting lines) live in the database or a config table/YAML — not scattered as magic numbers through business logic — so tuning doesn't require a code change.
+Runtime-tunable values (confidence thresholds, frame-skip rate, processing FPS, density weights, lane polygons, counting lines, insight thresholds) live in the database or a config table/YAML — not scattered as magic numbers through business logic — so tuning doesn't require a code change.
 
 ## 12. Deployment
 
-Docker Compose brings up: backend (FastAPI), frontend (static build or dev server), PostgreSQL. Dockerfiles and compose file are Phase 18 work — not created yet; see PROJECT_STATUS.md.
+Docker Compose brings up: backend (FastAPI), frontend (static build or dev server), PostgreSQL. Dockerfiles and compose file are Phase 19 work — not created yet; see PROJECT_STATUS.md.
+

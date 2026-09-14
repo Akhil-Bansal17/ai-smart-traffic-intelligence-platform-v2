@@ -86,6 +86,15 @@ class Settings(BaseSettings):
     max_concurrent_analysis_jobs: int = 2
     job_progress_update_interval_frames: int = 5
 
+    # --- Traffic Decision Intelligence (Phase 18) ---
+    insight_congestion_occupancy_threshold: int = 5
+    insight_congestion_density_score_threshold: float = 0.70
+    insight_flow_drop_pct_threshold: float = 50.0
+    insight_lane_imbalance_ratio_threshold: float = 3.0
+    insight_density_spike_threshold: float = 0.00035
+    insight_heavy_vehicle_pct_threshold: float = 30.0
+    insight_surge_flow_rate_threshold: float = 60.0
+
     @field_validator("environment")
     @classmethod
     def validate_environment(cls, v: str) -> str:
@@ -174,6 +183,41 @@ class Settings(BaseSettings):
     def validate_progress_interval(cls, v: int) -> int:
         if v < 1 or v > 100:
             raise ValueError(f"job_progress_update_interval_frames must be between 1 and 100, got {v}")
+        return v
+
+    @field_validator("insight_congestion_occupancy_threshold")
+    @classmethod
+    def validate_insight_occupancy(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"insight_congestion_occupancy_threshold must be >= 1, got {v}")
+        return v
+
+    @field_validator("insight_congestion_density_score_threshold")
+    @classmethod
+    def validate_insight_density_score(cls, v: float) -> float:
+        if v <= 0.0 or v > 1.0:
+            raise ValueError(f"insight_congestion_density_score_threshold must be within (0.0, 1.0], got {v}")
+        return v
+
+    @field_validator("insight_flow_drop_pct_threshold", "insight_heavy_vehicle_pct_threshold")
+    @classmethod
+    def validate_insight_percentages(cls, v: float) -> float:
+        if v <= 0.0 or v > 100.0:
+            raise ValueError(f"Percentage thresholds must be between 0.0 and 100.0, got {v}")
+        return v
+
+    @field_validator("insight_lane_imbalance_ratio_threshold")
+    @classmethod
+    def validate_insight_imbalance_ratio(cls, v: float) -> float:
+        if v < 1.0:
+            raise ValueError(f"insight_lane_imbalance_ratio_threshold must be >= 1.0, got {v}")
+        return v
+
+    @field_validator("insight_density_spike_threshold", "insight_surge_flow_rate_threshold")
+    @classmethod
+    def validate_insight_positive_floats(cls, v: float) -> float:
+        if v <= 0.0:
+            raise ValueError(f"Threshold must be positive, got {v}")
         return v
 
     @model_validator(mode="after")

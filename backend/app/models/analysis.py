@@ -118,6 +118,11 @@ class AnalysisSession(Base):
         back_populates="analysis_session",
         cascade="all, delete-orphan",
     )
+    insights = relationship(
+        "TrafficInsight",
+        back_populates="analysis_session",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<AnalysisSession(id={self.id}, video_id={self.video_id}, type={self.analysis_type}, status={self.status})>"

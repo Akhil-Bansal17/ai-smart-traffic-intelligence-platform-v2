@@ -5,7 +5,15 @@ from app.models.analysis import (
     TrafficMetricsRecord,
 )
 from app.models.analysis_job import AnalysisJob, JobStatus
+from app.models.anomaly import AnomalyEvent
 from app.models.corridor_simulation import EmergencyCorridorSimulationRun
+from app.models.insight import (
+    InsightCategory,
+    InsightSeverity,
+    InsightStatus,
+    RecommendationType,
+    TrafficInsight,
+)
 from app.models.prediction import (
     PredictionItem,
     PredictionRun,
@@ -19,11 +27,17 @@ __all__ = [
     "TrafficMetricsRecord",
     "LaneResultRecord",
     "CrossingEventRecord",
+    "AnomalyEvent",
     "AnalysisJob",
     "JobStatus",
     "PredictionRun",
     "PredictionItem",
     "SignalSimulationRun",
     "EmergencyCorridorSimulationRun",
+    "TrafficInsight",
+    "InsightCategory",
+    "InsightSeverity",
+    "InsightStatus",
+    "RecommendationType",
 ]
 

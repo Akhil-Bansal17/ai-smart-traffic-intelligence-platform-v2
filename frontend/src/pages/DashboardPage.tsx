@@ -7,6 +7,7 @@ import { VehicleCompositionWidget } from '@/components/dashboard/VehicleComposit
 import { TrafficFlowChartWidget } from '@/components/dashboard/TrafficFlowChartWidget';
 import { LaneDensityWidget } from '@/components/dashboard/LaneDensityWidget';
 import { AlertsWidget } from '@/components/dashboard/AlertsWidget';
+import { InsightsWidget } from '@/components/insights/InsightsWidget';
 import { PredictionAvailabilityWidget } from '@/components/dashboard/PredictionAvailabilityWidget';
 import { SignalOptimizationWidget } from '@/components/dashboard/SignalOptimizationWidget';
 import { EmergencyCorridorWidget } from '@/components/dashboard/EmergencyCorridorWidget';
@@ -163,7 +164,14 @@ export function DashboardPage() {
         isSyntheticSession={data.traffic_overview.provenance.state === 'SYNTHETIC'}
       />
 
-      {/* Row 5: Prediction Availability & ML Readiness (Full Width) */}
+      {/* Row 5: Phase 18 Traffic Decision Intelligence & Explainable Insights (Full Width) */}
+      <InsightsWidget
+        activeSessionId={selectedSessionId || data.traffic_overview.active_session_id}
+        videoFilename={data.traffic_overview.video_filename}
+        isSyntheticSession={data.traffic_overview.provenance.state === 'SYNTHETIC'}
+      />
+
+      {/* Row 6: Prediction Availability & ML Readiness (Full Width) */}
       <PredictionAvailabilityWidget data={data.prediction_availability} />
 
       {/* Row 5: Signal Optimization Simulation (1/2 width) + Emergency Corridor Simulation (1/2 width) */}

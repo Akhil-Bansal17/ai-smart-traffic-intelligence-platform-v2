@@ -1,12 +1,12 @@
 # 🚦 AI Smart Traffic Intelligence Platform
 
-> **Status: Active Development (Phases 1–17 Complete & Verified).** See `PROJECT_STATUS.md` for live test evidence, verification scripts, and provenance audits.
+> **Status: Active Development (Phases 1–18 Complete & Verified).** See `PROJECT_STATUS.md` for live test evidence, verification scripts, and provenance audits.
 
-An AI-powered traffic intelligence and decision-support platform: computer vision (vehicle detection + multi-object tracking) feeding a traffic-analytics engine, a short-horizon prediction model, and two explicitly-labeled decision-support simulations (signal timing, emergency corridor routing). Built end-to-end — CV pipeline, ML pipeline, decision-support simulation, REST API, database, and an interactive React frontend — not a single-notebook YOLO demo.
+An AI-powered traffic intelligence and decision-support platform: computer vision (vehicle detection + multi-object tracking) feeding a traffic-analytics engine, a short-horizon prediction model, two explicitly-labeled decision-support simulations (signal timing, emergency corridor routing), and an explainable decision intelligence layer. Built end-to-end — CV pipeline, ML pipeline, decision-support simulation, decision intelligence, REST API, database, and an interactive React frontend — not a single-notebook YOLO demo.
 
-> **Safety & Operational Scope Disclaimer:** *This system provides traffic signal optimization, emergency corridor simulation, and anomaly detection for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
+> **Safety & Operational Scope Disclaimer:** *This system provides traffic signal optimization, emergency corridor simulation, anomaly detection, and operational recommendations for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
 
-## Implemented & Verified Capabilities (Phases 1–17)
+## Implemented & Verified Capabilities (Phases 1–18)
 
 - **Video Ingestion & Validation (Phase 4):** Secure container magic-byte verification, path-traversal prevention, metadata extraction.
 - **Vehicle Detection (Phase 5):** Ultralytics YOLOv8n multi-class classification (`car`, `motorcycle`, `bus`, `truck`, `bicycle`).
@@ -22,11 +22,12 @@ An AI-powered traffic intelligence and decision-support platform: computer visio
 - **Traffic Anomaly & Congestion Incident Detection (Phase 15):** Explainable statistical rule engine evaluating persisted traffic metrics across 4 transparent rules (Congestion Buildup, Abnormal Flow Drop $\ge 50\%$, Multi-Lane Imbalance $\ge 3.0$x, Image-Space Density Spike), 4-tier severity scaling (`low`, `medium`, `high`, `critical`), lifecycle management (`open`, `acknowledged`, `resolved`), parent video lineage traceability, automated CV persistence hook, and interactive `AlertsWidget` on the Command Dashboard.
 - **Production Readiness & Observability Hardening (Phase 16):** Strict Pydantic v2 settings validation, deep health and readiness diagnostics (`/readiness`), bounded pagination on all list endpoints, standardized sanitized error envelopes, and cross-platform logging.
 - **Analysis Job Orchestration & Real-Time Processing Foundation (Phase 17):** Non-blocking asynchronous CV execution via bounded in-process `ThreadPoolExecutor`, explicit state machine (`QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`/`CANCELLED`), token-based cooperative cancellation in tracker loops, honest frame-level progress tracking with indeterminate handling, startup stale-job recovery (`process_restarted_stale_job`), idempotency conflict protection (HTTP 409 `duplicate_active_job`), and full frontend live job monitoring and cancellation.
+- **Intelligent Traffic Insights & Explainable Decision Intelligence (Phase 18):** Deterministic synthesis layer evaluating persisted traffic data across 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`), strict epistemic separation (`Observed:` empirical measurements vs `Inferred:` deductive reasoning with confidence ratings), honest evidence packages (simulation flags, $N < 20$ sample ML threshold declarations, uncalibrated 2D pixel-space caveats), non-actuating advisory recommendations, deterministic deduplication hashing (`dedup_signature`), state lifecycle tracking (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`), and interactive dashboard widget with full evidence drawer.
 
-## Planned Capabilities (Phases 18–19)
+## Planned Capabilities (Phases 19–20)
 
-- Docker Compose containerization & deployment (Phase 18)
-- Final portfolio documentation & presentation (Phase 19)
+- Docker Compose containerization & deployment (Phase 19)
+- Final portfolio documentation & presentation (Phase 20)
 
 ## Tech Stack
 
