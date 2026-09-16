@@ -58,9 +58,174 @@ tests/           Integration tests (unit tests live alongside backend/frontend c
 - **`prompts/README.md`** — how to use the prompt library to resume, extend, audit, or document this project in a future session.
 - **`SECURITY.md`** — security practices and current hardening status.
 
-## Getting Started
+## Getting Started & Local Development
 
-Local setup instructions (`.env`, Docker Compose, running the backend/frontend) will be filled in as Phases 2, 3, and 18 land. See `PROJECT_STATUS.md` for the current next task.
+### Prerequisites
+
+- **Python**: 3.10+ (tested on Python 3.14)
+- **Node.js**: 18+ (tested on Node 22 / 24, npm 10 / 11)
+- **Database**: SQLite (default zero-config for local development) or PostgreSQL 16+
+- **Git**
+
+---
+
+### Step 1: Environment Configuration
+
+Copy the example environment configuration file to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+For zero-config local development, SQLite is preconfigured out-of-the-box. To use PostgreSQL, update `DATABASE_URL` in `.env`:
+
+```ini
+DATABASE_URL=postgresql://traffic_user:changeme@localhost:5432/traffic_platform
+```
+
+---
+
+### Step 2: Backend Setup & Database Migrations
+
+1. **Install backend dependencies:**
+
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+
+2. **Apply database schema migrations (Alembic):**
+
+   ```bash
+   cd backend
+   alembic upgrade head
+   cd ..
+   ```
+
+3. **Start the FastAPI development server:**
+
+   ```bash
+   uvicorn app.main:app --reload --app-dir backend --port 8000
+   ```
+
+   The backend will be available at:
+   - **API Root / Health:** `http://localhost:8000/health`
+   - **Readiness Diagnostic:** `http://localhost:8000/readiness`
+   - **Interactive OpenAPI / Swagger Docs:** `http://localhost:8000/docs`
+   - **ReDoc Documentation:** `http://localhost:8000/redoc`
+
+---
+
+### Step 3: Frontend Setup & Development
+
+1. **Install frontend dependencies:**
+
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. **Start the Vite development server:**
+
+   ```bash
+   npm run dev
+   ```
+
+   The frontend dashboard will be available at `http://localhost:5173`.
+
+3. **Build & Typecheck verification:**
+
+   ```bash
+   npm run typecheck    # Strict TypeScript verification (tsc --noEmit)
+   npm run build        # Production bundle build (vite build)
+   ```
+
+---
+
+### Step 4: Running Tests & Verification Suites
+
+- **Run all backend pytest suites (200 tests):**
+
+  ```bash
+  cd backend
+  python -m pytest tests
+  cd ..
+  ```
+
+- **Run standalone phase verification scripts:**
+
+  ```bash
+  # Standalone end-to-end Decision Intelligence verification (Phase 18)
+  python scripts/verify_phase18_decision_intelligence.py
+
+  # Standalone Async Analysis Job Orchestration verification (Phase 17)
+  python scripts/verify_phase17_job_orchestration.py
+
+  # Standalone Production Readiness & Diagnostic verification (Phase 16)
+  python scripts/verify_phase16_production_readiness.py
+
+  # Standalone Anomaly & Congestion Detection verification (Phase 15)
+  python scripts/verify_phase15_anomaly_detection.py
+
+  # Standalone Command Dashboard verification (Phase 14)
+  python scripts/verify_phase14_dashboard.py
+  ```
+
+---
+
+## API Surface Overview
+
+All REST API endpoints are versioned under `/api/v1` (with root-level unversioned infrastructure health endpoints):
+
+| Category | Endpoint | Method | Description |
+|---|---|---|---|
+| **System** | `/health` | `GET` | Unversioned liveness check for load balancers and containers |
+| | `/readiness` | `GET` | Deep diagnostic probe verifying database, storage, and model weights |
+| | `/api/v1/health` | `GET` | Versioned API subsystem health report |
+| **Video Ingestion** | `/api/v1/videos/upload` | `POST` | Validated video upload with magic-byte check and path sanitation |
+| | `/api/v1/videos` | `GET` | Paginated listing of ingested video records |
+| | `/api/v1/videos/{id}` | `GET` | Detailed metadata for a specific video |
+| **Computer Vision** | `/api/v1/detection/videos/{id}` | `POST` | YOLOv8n multi-class vehicle detection |
+| | `/api/v1/tracking/videos/{id}` | `POST` | ByteTrack Kalman-filter multi-object tracking |
+| | `/api/v1/counting/videos/{id}` | `POST` | Directional virtual line-crossing vehicle count |
+| | `/api/v1/analytics/videos/{id}` | `POST` | Flow rate, class distribution, and time-series bucketing |
+| | `/api/v1/lane-analysis/videos/{id}` | `POST` | 2D polygon lane occupancy and image-space density |
+| **Analysis Sessions** | `/api/v1/analysis/videos/{id}/run` | `POST` | Execute full CV pipeline synchronously and persist session |
+| | `/api/v1/analysis/sessions` | `GET` | Paginated query of historical analysis sessions |
+| | `/api/v1/analysis/sessions/{id}` | `GET` | Full session detail with metrics, lane polygons, and crossing logs |
+| **Job Orchestration** | `/api/v1/analysis/jobs` | `POST` | Enqueue non-blocking background CV analysis job |
+| | `/api/v1/analysis/jobs` | `GET` | List active and historical analysis jobs with live progress |
+| | `/api/v1/analysis/jobs/{id}` | `GET` | Real-time job status, stage, and frame-level progress |
+| | `/api/v1/analysis/jobs/{id}/cancel` | `POST` | Cooperatively cancel an in-progress analysis job |
+| **ML Forecasting** | `/api/v1/predictions/readiness` | `GET` | 3-tier data provenance readiness check ($N \ge 20$ sample threshold) |
+| | `/api/v1/predictions/train` | `POST` | Train forecasting model (Random Forest, HistGradientBoosting, Ridge) |
+| | `/api/v1/predictions/runs` | `GET` | List historical forecasting runs |
+| | `/api/v1/predictions/runs/{id}` | `GET` | Multi-step forecast trajectory with empirical residual intervals |
+| **Signal Simulation** | `/api/v1/signal-optimization/presets` | `GET` | Preconfigured intersection topologies and demand scenarios |
+| | `/api/v1/signal-optimization/simulate` | `POST` | Fixed-time baseline vs Webster/Delay-optimized signal timing simulation |
+| | `/api/v1/signal-optimization/runs` | `GET` | Historical signal simulation runs and Level of Service (LOS) records |
+| **Emergency Priority** | `/api/v1/emergency-corridor/presets` | `GET` | Preconfigured arterial corridors and emergency vehicle scenarios |
+| | `/api/v1/emergency-corridor/simulate` | `POST` | Coordinated green wave arterial priority simulation with safety caps |
+| | `/api/v1/emergency-corridor/runs` | `GET` | Historical corridor simulation runs and delay trade-off records |
+| **Command Dashboard** | `/api/v1/dashboard/summary` | `GET` | Unified read-only single-roundtrip system intelligence aggregation |
+| **Anomaly Detection** | `/api/v1/anomalies` | `GET` | Query traffic anomaly and congestion incident events |
+| | `/api/v1/anomalies/{id}/status` | `PATCH` | Update incident lifecycle state (`open`, `acknowledged`, `resolved`) |
+| **Decision Intelligence** | `/api/v1/insights/generate` | `POST` | Evaluate 7 deterministic rule categories and synthesize insights |
+| | `/api/v1/insights` | `GET` | List insights with epistemic separation (`Observed:` vs `Inferred:`) |
+| | `/api/v1/insights/{id}` | `GET` | Detailed insight package with full evidence and advisory recommendations |
+| | `/api/v1/insights/{id}/status` | `PATCH` | Transition lifecycle state (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`) |
+
+---
+
+## Developer Troubleshooting & Environment Notes
+
+- **PyTorch / YOLO CPU Execution:**
+  By default, `YOLO_DEVICE=cpu` is set in `.env.example` for universal compatibility without requiring a dedicated CUDA GPU.
+- **Data Provenance & ML Boundary:**
+  In compliance with Phase 11 trust boundaries, forecasting models require at least 20 genuine real-world observations before training on real data. When fewer samples exist, the readiness API transparently declares `is_ready=False` and offers explicit developer fixture fallback options.
+- **Simulation Transparency:**
+  All signal optimization and emergency corridor metrics are generated within validated decision-support simulation engines and explicitly tagged `is_simulation=True`. They do not actuate physical hardware.
+- **Windows UTF-8 Encoding:**
+  When executing verification scripts directly on Windows PowerShell, ensure console UTF-8 support (handled automatically in Python scripts via `sys.stdout.reconfigure(encoding="utf-8")`).
 
 ## A Note on Honesty
 

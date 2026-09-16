@@ -3,7 +3,7 @@
 
 > This file is the single source of truth for "where the project actually is." Every future session (Claude or human) should read this file first, before touching code. Update it at the end of every phase — not just when something feels finished.
 
-Last updated: 2026-09-09
+Last updated: 2026-09-14
 
 ---
 
