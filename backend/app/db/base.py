@@ -17,6 +17,7 @@ from app.models.prediction import (  # noqa: F401
     PredictionItem,
     PredictionRun,
 )
+from app.models.report import Report  # noqa: F401
 from app.models.simulation import SignalSimulationRun  # noqa: F401
 from app.models.video import Video  # noqa: F401
 
@@ -34,6 +35,8 @@ __all__ = [
     "SignalSimulationRun",
     "EmergencyCorridorSimulationRun",
     "TrafficInsight",
+    "Report",
 ]
+
 
 

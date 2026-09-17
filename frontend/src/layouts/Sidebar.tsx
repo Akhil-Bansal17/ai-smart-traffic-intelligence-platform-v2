@@ -11,6 +11,7 @@ import {
   Info,
   X,
   Radio,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -30,7 +31,9 @@ const mainNavItems: NavItem[] = [
   { name: 'Signal Optimization', path: '/signal-optimization', icon: Sliders, phaseTag: 'Ph 14', isSimulation: true },
   { name: 'Emergency Simulation', path: '/emergency-simulation', icon: Siren, phaseTag: 'Ph 15', isSimulation: true },
   { name: 'History', path: '/history', icon: History, phaseTag: 'Ph 12' },
+  { name: 'Reports', path: '/reports', icon: FileText, phaseTag: 'Ph 19' },
 ];
+
 
 const secondaryNavItems: NavItem[] = [
   { name: 'System Info', path: '/system-info', icon: Info },

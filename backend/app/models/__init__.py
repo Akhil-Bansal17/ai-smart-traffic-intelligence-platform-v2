@@ -18,6 +18,13 @@ from app.models.prediction import (
     PredictionItem,
     PredictionRun,
 )
+from app.models.report import (
+    Report,
+    ReportFormat,
+    ReportScopeType,
+    ReportStatus,
+    ReportType,
+)
 from app.models.simulation import SignalSimulationRun
 from app.models.video import Video
 
@@ -39,5 +46,11 @@ __all__ = [
     "InsightSeverity",
     "InsightStatus",
     "RecommendationType",
+    "Report",
+    "ReportType",
+    "ReportScopeType",
+    "ReportStatus",
+    "ReportFormat",
 ]
+
 

@@ -9,3 +9,8 @@ export * from './lane_analysis';
 export * from './analysis';
 export * from './prediction';
 export * from './signalOptimization';
+export * from './emergencyCorridor';
+export * from './anomaly';
+export * from './insight';
+export * from './report';
+

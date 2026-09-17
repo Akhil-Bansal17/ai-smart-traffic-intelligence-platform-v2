@@ -7,6 +7,7 @@ import { PredictionsPage } from '@/pages/PredictionsPage';
 import { SignalOptimizationPage } from '@/pages/SignalOptimizationPage';
 import { EmergencySimulationPage } from '@/pages/EmergencySimulationPage';
 import { HistoryPage } from '@/pages/HistoryPage';
+import { ReportsPage } from '@/pages/ReportsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { SystemInfoPage } from '@/pages/SystemInfoPage';
 
@@ -22,6 +23,7 @@ export function App() {
           <Route path="signal-optimization" element={<SignalOptimizationPage />} />
           <Route path="emergency-simulation" element={<EmergencySimulationPage />} />
           <Route path="history" element={<HistoryPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="system-info" element={<SystemInfoPage />} />
           {/* Catch-all fallback */}
@@ -31,5 +33,6 @@ export function App() {
     </BrowserRouter>
   );
 }
+
 
 export default App;

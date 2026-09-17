@@ -18,6 +18,7 @@ from app.api.v1 import (
     insights,
     lane_analysis,
     predictions,
+    reports,
     signal_optimization,
     tracking,
     videos,
@@ -38,5 +39,7 @@ api_router.include_router(emergency_corridor.router, prefix="/emergency-corridor
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(anomalies.router, prefix="/anomalies", tags=["anomalies"])
 api_router.include_router(insights.router, prefix="/insights", tags=["insights"])
+api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+
 
 

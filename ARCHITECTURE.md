@@ -405,13 +405,44 @@ The Traffic Decision Intelligence subsystem acts as a deterministic reasoning an
 - `evidence.py`: Evidence package aggregator and limitation compiler.
 - `models/insight.py`: `TrafficInsight` SQLAlchemy ORM entity with status lifecycle (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`) and cascading session foreign keys.
 
+## 8.5. Business-Grade Traffic Reporting & Export (Phase 19)
+
+The Business-Grade Traffic Reporting & Export subsystem enables operators to generate deterministic, reproducible, auditable, downloadable executive and operational reports in vector PDF and clean tabular CSV formats across single analysis sessions or bounded historical time ranges ($\le 30\text{ days}$).
+
+### Core Architectural Invariants:
+1. **Zero Metric Recalculation Invariant**: The reporting layer acts strictly as an assembly, presentation, and packaging engine. Every volume, flow rate, lane density, incident, and simulation result originates directly from persisted database records (`traffic_metrics`, `lane_results`, `crossing_events`, `anomaly_events`, `traffic_insights`, `signal_simulations`, `emergency_corridor_simulations`).
+2. **Mandatory Epistemic Truth Labeling Taxonomy**:
+   - `OBSERVED`: Direct empirical measurements from CV detection and tripwire tracking (volumes, modal split, directional crossing counts, time-series flow).
+   - `INFERRED`: Deterministic analytical deductions and algorithmic assessments (lane density scores, bottleneck classifications, anomaly events).
+   - `PREDICTED`: Predictive forecasting models with residual intervals; explicitly marked `UNAVAILABLE` when historical sample threshold ($N < 20$) is not met.
+   - `SIMULATED`: Off-line heuristic and mathematical simulations (Webster's signal optimization, emergency corridor travel time savings).
+   - `RECOMMENDED/ADVISORY`: Human-in-the-loop decision-support advisories; never direct actuation.
+   - `UNAVAILABLE`: Genuinely missing, unmonitored, or threshold-deficient data (never fabricated or silently substituted).
+3. **Reproducibility & Audit Trail**:
+   - Every generated report receives an immutable UUID, UTC timestamp, and SHA-256 artifact hash.
+   - Re-running report generation on unchanged session data produces bitwise-identical analytical structures.
+4. **Single-Node Bounded Scope**:
+   - Time-range scope bounded to 30 days maximum to guarantee fast, single-node deterministic query execution.
+   - Safe path traversal validation ensuring file artifacts remain strictly confined within `reports_dir`.
+5. **Multi-Format Export Pipelines**:
+   - **Vector PDF Pipeline**: Pure-Python ReportLab 5.0.1 implementation utilizing custom `NumberedCanvas` ("Page X of Y"), dark slate branding headers, color-coded truth badges, structured KPI summary grids, flow charts, and prominent legal disclaimers.
+   - **Tabular CSV Pipeline**: Clean RFC 4180-compliant comma-separated tables with explicit metadata headers, summary sections, vehicle compositions, directional breakdowns, lane occupancies, anomalies, and insights.
+
+### Subsystem Components (`backend/app/services/reports/`):
+- `models.py`: Domain dataclasses for `TrafficAnalysisReportData`, `TruthLabel`, `ScopeMetadata`, `ExecutiveSummary`, `TrafficOverviewSection`, `VehicleCompositionSection`, `DirectionalFlowSection`, `LaneAnalysisSection`, `AnomaliesSection`, `InsightsSection`, `PredictionStatusSection`, `SignalOptimizationSection`, `EmergencyCorridorSection`, `ProvenanceReportSection`, `DisclaimersSection`.
+- `assembler.py`: `ReportAssembler` retrieving authoritative records with zero metric recalculation and strict truth labeling.
+- `pdf_generator.py`: `PDFReportGenerator` formatting printable vector PDFs with clean page flow and truth tags.
+- `csv_generator.py`: `CSVReportGenerator` formatting clean tabular metric matrices.
+- `service.py`: `ReportService` managing lifecycle, validation, disk writes, SHA-256 hashing, and cascading deletions.
+- `models/report.py`: `Report` SQLAlchemy ORM entity with status lifecycle (`pending` -> `generating` -> `completed` -> `failed`).
+
 ## 9. Frontend Architecture (React + TypeScript + Vite + Tailwind)
 
-Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimization, Emergency Simulation, History, Settings, System Information.
+Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimization, Emergency Simulation, Reports & Export, History, Settings, System Information.
 
 - `src/api/` — typed API client (one function per backend endpoint, no ad-hoc fetches scattered through components).
 - `src/pages/` — one file per page above, composed from `src/components/`.
-- `src/components/` — reusable chart wrappers (Recharts/Plotly), KPI cards, the video-annotation overlay, lane-editor widget, and decision intelligence widgets (`InsightsWidget`, `InsightCard`, `InsightDetailModal`).
+- `src/components/` — reusable chart wrappers (Recharts/Plotly), KPI cards, the video-annotation overlay, lane-editor widget, decision intelligence widgets, and report generation modals (`ReportsPage.tsx`, `TruthTagBadge`, `ReportDetailModal`).
 - Real data by default; any demo/mocked view is explicitly labeled "Demo data" in the UI, per the no-fake-results rule.
 
 ## 10. Security Model (see SECURITY.md for the living checklist)
@@ -424,9 +455,10 @@ Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimiz
 
 ## 11. Configuration Strategy
 
-Runtime-tunable values (confidence thresholds, frame-skip rate, processing FPS, density weights, lane polygons, counting lines, insight thresholds) live in the database or a config table/YAML — not scattered as magic numbers through business logic — so tuning doesn't require a code change.
+Runtime-tunable values (confidence thresholds, frame-skip rate, processing FPS, density weights, lane polygons, counting lines, insight thresholds, report time range bounds, report max file size) live in the database or a config table/YAML — not scattered as magic numbers through business logic — so tuning doesn't require a code change.
 
 ## 12. Deployment
 
-Docker Compose brings up: backend (FastAPI), frontend (static build or dev server), PostgreSQL. Dockerfiles and compose file are Phase 19 work — not created yet; see PROJECT_STATUS.md.
+Docker Compose brings up: backend (FastAPI), frontend (static build or dev server), PostgreSQL. Dockerfiles and compose file are Phase 20 work — not created yet; see PROJECT_STATUS.md.
+
 

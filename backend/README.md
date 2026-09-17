@@ -1,19 +1,19 @@
 # 🚦 Traffic Intelligence Backend
 
-> **Status: Phases 2–18 Complete & Verified.** See `../PROJECT_STATUS.md` for full implementation history and test verification logs.
+> **Status: Phases 2–19 Complete & Verified.** See `../PROJECT_STATUS.md` for full implementation history and test verification logs.
 
-FastAPI-powered asynchronous traffic intelligence, analytics, forecasting, simulation, and decision intelligence service.
+FastAPI-powered asynchronous traffic intelligence, analytics, forecasting, simulation, decision intelligence, and business reporting service.
 
 ## Backend Architecture Layout
 
 ```
 backend/
 ├── app/
-│   ├── api/v1/                  # Versioned API route endpoints (videos, cv, ml, simulation, insights)
+│   ├── api/v1/                  # Versioned API route endpoints (videos, cv, ml, simulation, insights, reports)
 │   ├── config/                  # Pydantic v2 application settings & environment validation
 │   ├── core/                    # Centralized exceptions, security helpers, structured logging
 │   ├── db/                      # SQLAlchemy database session & engine configuration
-│   ├── models/                  # SQLAlchemy ORM models (Video, AnalysisSession, Predictions, etc.)
+│   ├── models/                  # SQLAlchemy ORM models (Video, AnalysisSession, Report, etc.)
 │   ├── schemas/                 # Pydantic v2 request / response validation schemas
 │   ├── services/
 │   │   ├── cv/                  # Video ingestion, YOLOv8 detector, ByteTrack tracker, counting, lanes, jobs
@@ -22,10 +22,11 @@ backend/
 │   │   ├── corridor/            # Coordinated multi-intersection emergency corridor priority simulation
 │   │   ├── dashboard/           # Single-roundtrip system intelligence aggregator
 │   │   ├── anomaly/             # Multi-rule statistical traffic anomaly & incident detector
-│   │   └── insights/            # Deterministic multi-category explainable decision intelligence
+│   │   ├── insights/            # Deterministic multi-category explainable decision intelligence
+│   │   └── reports/             # Business-grade PDF (ReportLab) & CSV report assembler and generator
 │   └── main.py                  # FastAPI application entry point with lifespan lifecycle hooks
-├── migrations/                  # Alembic database migration scripts (0001 through 0010)
-├── tests/                       # Complete pytest suite (200 unit & integration tests)
+├── migrations/                  # Alembic database migration scripts (0001 through 0011)
+├── tests/                       # Complete pytest suite (212 unit & integration tests)
 ├── alembic.ini                  # Alembic environment and configuration
 ├── pytest.ini                   # Pytest testpath and pythonpath configuration
 └── requirements.txt             # Pinned backend dependencies

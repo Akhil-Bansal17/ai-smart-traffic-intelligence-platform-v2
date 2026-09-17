@@ -27,7 +27,9 @@ import {
   ShieldAlert,
   History,
   Video,
+  FileText,
 } from 'lucide-react';
+
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
@@ -245,8 +247,17 @@ export function DashboardPage() {
             <History className="h-4 w-4 text-slate-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-medium text-slate-200 group-hover:text-white">Full History</div>
           </Link>
+
+          <Link
+            to={selectedSessionId || data.traffic_overview.active_session_id ? `/reports?sessionId=${selectedSessionId || data.traffic_overview.active_session_id}` : '/reports'}
+            className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 transition-all text-center group col-span-2 sm:col-span-3 lg:col-span-6 flex items-center justify-center gap-2"
+          >
+            <FileText className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <div className="text-xs font-semibold text-cyan-300">Generate Structured PDF / CSV Report for Current Session &rarr;</div>
+          </Link>
         </div>
       </div>
     </div>
   );
 }
+

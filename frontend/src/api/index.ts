@@ -12,4 +12,7 @@ export * from './signalOptimization';
 export * from './emergencyCorridor';
 export * from './dashboard';
 export * from './anomalies';
+export * from './insights';
+export * from './reports';
+
 

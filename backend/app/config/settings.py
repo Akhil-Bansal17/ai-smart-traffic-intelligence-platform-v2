@@ -95,7 +95,27 @@ class Settings(BaseSettings):
     insight_heavy_vehicle_pct_threshold: float = 30.0
     insight_surge_flow_rate_threshold: float = 60.0
 
+    # --- Business-Grade Traffic Reporting & Export (Phase 19) ---
+    reports_dir: str = "./reports"
+    max_report_time_range_days: int = 30
+    max_report_file_size_mb: int = 50
+
+    @field_validator("max_report_time_range_days")
+    @classmethod
+    def validate_report_time_range(cls, v: int) -> int:
+        if v < 1 or v > 365:
+            raise ValueError(f"max_report_time_range_days must be between 1 and 365, got {v}")
+        return v
+
+    @field_validator("max_report_file_size_mb")
+    @classmethod
+    def validate_report_file_size(cls, v: int) -> int:
+        if v < 1 or v > 500:
+            raise ValueError(f"max_report_file_size_mb must be between 1 and 500, got {v}")
+        return v
+
     @field_validator("environment")
+
     @classmethod
     def validate_environment(cls, v: str) -> str:
         val = v.strip().lower()

@@ -46,3 +46,8 @@ logs/
 
 # Scratch
 scratch/
+
+# Reports output
+reports/
+*.pdf
+
