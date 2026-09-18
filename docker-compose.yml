@@ -1,0 +1,85 @@
+# ==============================================================================
+# AI Smart Traffic Intelligence Platform — Docker Compose Stack
+# ==============================================================================
+# Single-node stack providing PostgreSQL database, FastAPI backend,
+# and React/Nginx frontend with health probes and persistent storage.
+# ==============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: traffic-platform-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-traffic_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-traffic_platform}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-traffic_user} -d $${POSTGRES_DB:-traffic_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: traffic-platform-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-traffic_user}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-traffic_platform}
+      SECRET_KEY: ${SECRET_KEY:-changeme-in-env}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:80,http://localhost:3000}
+      UPLOAD_DIR: /app/uploads
+      REPORTS_DIR: /app/reports
+      YOLO_MODEL_PATH: /app/data_science/models/yolov8n.pt
+      PROCESSING_FPS: ${PROCESSING_FPS:-5}
+      MAX_CONCURRENT_ANALYSIS_JOBS: ${MAX_CONCURRENT_ANALYSIS_JOBS:-2}
+      MAX_REPORT_TIME_RANGE_DAYS: ${MAX_REPORT_TIME_RANGE_DAYS:-30}
+      MAX_REPORT_FILE_SIZE_MB: ${MAX_REPORT_FILE_SIZE_MB:-50}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./reports:/app/reports
+      - ./data_science/models:/app/data_science/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: traffic-platform-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    driver: local

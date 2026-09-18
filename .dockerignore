@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+.venv
+venv
+.pytest_cache
+.mypy_cache
+
+# Node
+node_modules
+dist
+.vite
+
+# Environment and Secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Temporary / Local Storage
+uploads/*
+!uploads/.gitkeep
+reports/*
+!reports/.gitkeep
+scratch/
+*.log
+logs/
+*.sqlite3
+*.db
+
+# IDE
+.vscode
+.idea
+.DS_Store

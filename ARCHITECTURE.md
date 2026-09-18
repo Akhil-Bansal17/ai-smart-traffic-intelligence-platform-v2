@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 ## AI Smart Traffic Intelligence Platform
 
-Status: **Phases 1–13 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+Status: **Phases 1–20 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
 
 > **Decision Support Disclaimer:** *This system provides traffic signal optimization and emergency corridor simulation for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
 
@@ -457,8 +457,26 @@ Pages: Dashboard, Video Analysis, Traffic Analytics, Predictions, Signal Optimiz
 
 Runtime-tunable values (confidence thresholds, frame-skip rate, processing FPS, density weights, lane polygons, counting lines, insight thresholds, report time range bounds, report max file size) live in the database or a config table/YAML — not scattered as magic numbers through business logic — so tuning doesn't require a code change.
 
-## 12. Deployment
+## 12. Deployment & Containerization (Phase 20)
 
-Docker Compose brings up: backend (FastAPI), frontend (static build or dev server), PostgreSQL. Dockerfiles and compose file are Phase 20 work — not created yet; see PROJECT_STATUS.md.
+The platform is packaged for single-node deployment via Docker and Docker Compose:
+
+### Containerized Stack:
+1. **`db` Service (`postgres:16-alpine`)**:
+   - PostgreSQL 16 relational database with health probing (`pg_isready`).
+   - Named volume `postgres_data` for durable, persistent storage across container restarts.
+2. **`backend` Service (`backend/Dockerfile`)**:
+   - Lightweight `python:3.11-slim` image with headless OpenCV dependencies (`libgl1`, `libglib2.0-0`), PostgreSQL client libraries, and `curl`.
+   - Runs as dedicated non-root user `appuser` (UID 1000).
+   - Configurable Uvicorn ASGI server with automatic lifespan database synchronization and stale job recovery.
+   - Built-in container health checks (`curl -f http://localhost:8000/health`).
+   - Volume mounts for persistent video uploads (`./uploads`), generated reports (`./reports`), and offline model weights (`./data_science/models`).
+3. **`frontend` Service (`frontend/Dockerfile`)**:
+   - Multi-stage build: Stage 1 (Node 20 Alpine) compiles TypeScript and bundles assets with Vite; Stage 2 (Nginx Alpine) serves static assets.
+   - Custom `nginx.conf` routing Single Page Application fallbacks (`try_files $uri $uri/ /index.html;`), enforcing security headers (`X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`), and reverse proxying `/api/`, `/health`, `/readiness`, `/docs`, and `/openapi.json` to the backend container.
+   - Container health check via `wget http://localhost:80/`.
+
+### Continuous Integration (`.github/workflows/ci.yml`):
+- GitHub Actions automated matrix verifying backend pytest suite (212 unit/integration tests) on Python 3.11 and frontend TypeScript typecheck / Vite production build on Node 20.
 
 

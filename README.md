@@ -1,232 +1,240 @@
 # 🚦 AI Smart Traffic Intelligence Platform
 
-> **Status: Active Development (Phases 1–19 Complete & Verified).** See `PROJECT_STATUS.md` for live test evidence, verification scripts, and provenance audits.
+> **Status: Production Packaged & Verified (Phases 1–20 Complete).** See [`PROJECT_STATUS.md`](file:///c:/Users/Akhil/Downloads/ai-smart-traffic-intelligence-platform%203/ai-smart-traffic-intelligence-platform/PROJECT_STATUS.md) for live test evidence, 212 passed backend unit/integration tests, 16/16 Phase 20 verification checks, and complete subsystem test results.
 
-An AI-powered traffic intelligence and decision-support platform: computer vision (vehicle detection + multi-object tracking) feeding a traffic-analytics engine, a short-horizon prediction model, two explicitly-labeled decision-support simulations (signal timing, emergency corridor routing), an explainable decision intelligence layer, and business-grade traffic reporting and export. Built end-to-end — CV pipeline, ML pipeline, decision-support simulation, decision intelligence, reporting subsystem, REST API, database, and an interactive React frontend — not a single-notebook YOLO demo.
+An end-to-end AI-powered traffic intelligence and decision-support platform: computer vision (YOLOv8 vehicle detection + ByteTrack multi-object tracking) feeding a traffic-analytics engine, an explainable ML prediction service, two explicitly-labeled decision-support simulations (signal timing optimization, emergency corridor routing), an explainable decision intelligence layer, and business-grade traffic reporting in vector PDF and CSV formats. Built end-to-end as a modular monolith with FastAPI, PostgreSQL/SQLite, and a dark-mode React/TypeScript frontend — not a single-notebook demo.
 
-> **Safety & Operational Scope Disclaimer:** *This system provides traffic signal optimization, emergency corridor simulation, anomaly detection, operational recommendations, and reporting for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
-
-## Implemented & Verified Capabilities (Phases 1–19)
-
-- **Video Ingestion & Validation (Phase 4):** Secure container magic-byte verification, path-traversal prevention, metadata extraction.
-- **Vehicle Detection (Phase 5):** Ultralytics YOLOv8n multi-class classification (`car`, `motorcycle`, `bus`, `truck`, `bicycle`).
-- **Object Tracking (Phase 6):** ByteTrack Kalman filter motion prediction + IoU association with track lifecycle states.
-- **Vehicle Counting (Phase 7):** Virtual line-crossing detector with 2D cross-product transition testing and zero double-counting.
-- **Traffic Flow Analytics (Phase 8):** Minute/hourly flow rates, class distributions, directional splits, discrete time-series bucketing.
-- **Lane Analysis & Density (Phase 9):** Configurable 2D polygonal lane assignment, Shoelace area calculation, image-space density estimation.
-- **Database Integration & Persistence (Phase 10):** Relational persistence of sessions, metrics, lane occupancy, and crossing events.
-- **Short-Horizon Traffic Forecasting (Phase 11):** Non-leaking lag feature engineering, classical ML models (Random Forest, HistGradientBoosting, Ridge), empirical residual prediction intervals, and strict 3-tier data provenance tracking.
-- **Traffic Signal Optimization Simulation (Phase 12):** Deterministic baseline signal plans, 3 explainable optimization algorithms (Demand-Proportional, Webster's Method, Constrained Delay Minimization), Webster delay proxy modeling ($d_1 + d_2 - d_3$), HCM Level of Service (LOS A–F), and interactive React simulation dashboard.
-- **Emergency Corridor Simulation & Signal Priority (Phase 13):** Coordinated multi-intersection arterial progression, green wave preemption, queue clearance lead-time ($t_{\text{lead}} = Q \times h_d + 2$s), strict safety constraints ($g_{\text{min}} \ge 7$s, yellow clearance $\ge 3$s, all-red clearance $\ge 1$s, max priority cap $\le 80$s), cross-street delay trade-off analysis, and interactive React emergency corridor dashboard.
-- **System-Wide Traffic Intelligence & Decision-Support Dashboard (Phase 14):** Unified single-roundtrip aggregation endpoint (`GET /api/v1/dashboard/summary`) with strict read-only anti-trigger protection (zero inference/simulation on page load/refresh), 10 modular React widgets, 5-state explicit provenance qualification (`REAL DATA`, `SIMULATION`, `PREDICTION`, `SYNTHETIC`, `UNAVAILABLE`), dynamic 20-sample observation bucket threshold reporting, Shoelace image-space density labeling, and full data lineage trust boundary panel.
-- **Traffic Anomaly & Congestion Incident Detection (Phase 15):** Explainable statistical rule engine evaluating persisted traffic metrics across 4 transparent rules (Congestion Buildup, Abnormal Flow Drop $\ge 50\%$, Multi-Lane Imbalance $\ge 3.0$x, Image-Space Density Spike), 4-tier severity scaling (`low`, `medium`, `high`, `critical`), lifecycle management (`open`, `acknowledged`, `resolved`), parent video lineage traceability, automated CV persistence hook, and interactive `AlertsWidget` on the Command Dashboard.
-- **Production Readiness & Observability Hardening (Phase 16):** Strict Pydantic v2 settings validation, deep health and readiness diagnostics (`/readiness`), bounded pagination on all list endpoints, standardized sanitized error envelopes, and cross-platform logging.
-- **Analysis Job Orchestration & Real-Time Processing Foundation (Phase 17):** Non-blocking asynchronous CV execution via bounded in-process `ThreadPoolExecutor`, explicit state machine (`QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`/`CANCELLED`), token-based cooperative cancellation in tracker loops, honest frame-level progress tracking with indeterminate handling, startup stale-job recovery (`process_restarted_stale_job`), idempotency conflict protection (HTTP 409 `duplicate_active_job`), and full frontend live job monitoring and cancellation.
-- **Intelligent Traffic Insights & Explainable Decision Intelligence (Phase 18):** Deterministic synthesis layer evaluating persisted traffic data across 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`), strict epistemic separation (`Observed:` empirical measurements vs `Inferred:` deductive reasoning with confidence ratings), honest evidence packages (simulation flags, $N < 20$ sample ML threshold declarations, uncalibrated 2D pixel-space caveats), non-actuating advisory recommendations, deterministic deduplication hashing (`dedup_signature`), state lifecycle tracking (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`), and interactive dashboard widget with full evidence drawer.
-- **Business-Grade Traffic Reporting & Export (Phase 19):** Structured, reproducible, downloadable reports in printable vector PDF (pure-Python ReportLab 5.0.1 with `NumberedCanvas` "Page X of Y", dark theme headers, color-coded badges, limitation disclaimers) and clean RFC 4180 CSV for single analysis sessions and bounded historical time ranges ($\le 30$ days), zero metric recalculation invariant, mandatory 6-state truth labeling taxonomy (`OBSERVED`, `INFERRED`, `PREDICTED`, `SIMULATED`, `RECOMMENDED/ADVISORY`, `UNAVAILABLE`), path-traversal security, and dedicated Reports page with live modal preview.
-
-## Planned Capabilities (Phase 20)
-
-- Docker Compose containerization, portfolio documentation & presentation (Phase 20)
-
-## Tech Stack
-
-| Layer | Tools |
-|---|---|
-| Computer Vision | Python, OpenCV, Ultralytics YOLO, ByteTrack/BoT-SORT |
-| Data Science | Pandas, NumPy, scikit-learn, XGBoost, Matplotlib/Plotly |
-| Backend | FastAPI, Pydantic, SQLAlchemy, PostgreSQL |
-| Frontend | React, TypeScript, Vite, Tailwind CSS, Recharts/Plotly |
-| Infra | Docker, Docker Compose, Git |
-
-## Repository Layout
-
-```
-backend/         FastAPI app: api, core, models, schemas, services (cv/ml/simulation), db, config
-frontend/        React + TypeScript app: pages, components, api client
-data_science/    Notebooks, training scripts, serialized models (research code, kept separate from production inference)
-docs/            Additional documentation as it's produced
-prompts/         Full reusable prompt library for continuing this project across sessions — start here
-scripts/         One-off / operational scripts
-tests/           Integration tests (unit tests live alongside backend/frontend code)
-```
-
-## Key Documents
-
-- **`ARCHITECTURE.md`** — full system design: pipeline, database schema, API surface, security model.
-- **`PROJECT_STATUS.md`** — exactly where the project stands right now; read this before doing anything else.
-- **`prompts/README.md`** — how to use the prompt library to resume, extend, audit, or document this project in a future session.
-- **`SECURITY.md`** — security practices and current hardening status.
-
-## Getting Started & Local Development
-
-### Prerequisites
-
-- **Python**: 3.10+ (tested on Python 3.14)
-- **Node.js**: 18+ (tested on Node 22 / 24, npm 10 / 11)
-- **Database**: SQLite (default zero-config for local development) or PostgreSQL 16+
-- **Git**
+> **Safety & Operational Scope Disclaimer:** *This system provides traffic analytics, signal timing optimization simulations, emergency corridor simulations, anomaly detection, operational recommendations, and reporting purely for decision support; it does not directly control physical traffic signals, emergency vehicles, or municipal dispatch infrastructure.*
 
 ---
 
-### Step 1: Environment Configuration
+## 🏗️ System Architecture & End-to-End Data Flow
 
-Copy the example environment configuration file to `.env`:
+```
++---------------------------------------------------------------------------------------------------+
+|                                       END-TO-END DATA FLOW                                        |
++---------------------------------------------------------------------------------------------------+
+                                                  │
+                                                  ▼
+                                     [ 1. VIDEO INGESTION ]
+                                (Container Magic-Byte Check,
+                                  Path Sanitization, 500MB)
+                                                  │
+                                                  ▼
+                                      [ 2. YOLOv8n DETECTION ]
+                                  (CPU Inference, 5 Vehicle
+                                    Classes, Clamped BBoxes)
+                                                  │
+                                                  ▼
+                                      [ 3. ByteTrack TRACKING ]
+                                 (8-State Kalman Filter, IoU
+                                   Association, Track States)
+                                                  │
+                                                  ▼
+                                      [ 4. VEHICLE COUNTING ]
+                                  (2D Signed Cross-Product
+                                   Virtual Tripwire Crossing)
+                                                  │
+                                                  ▼
+                                    [ 5. TRAFFIC FLOW & LANES ]
+                                 (Flow Rates, Direction Splits,
+                                  Shoelace Lane Density, Area)
+                                                  │
+                                                  ▼
+                                   [ 6. ATOMIC DB PERSISTENCE ]
+                                 (AnalysisSession, LaneResults,
+                                  CrossingEvents, VideoRecord)
+                                                  │
+               ┌──────────────────────────────────┴──────────────────────────────────┐
+               ▼                                                                     ▼
+   [ 7. ANOMALY & INCIDENT ]                                             [ 8. DECISION INTELLIGENCE ]
+ (Congestion Buildup, Flow Drop,                                         (7 Rule Synthesis, Evidence,
+  Lane Imbalance, Density Spike)                                          Severity, Epistemic Labels)
+               │                                                                     │
+               ├──────────────────────────────────┬──────────────────────────────────┤
+               ▼                                  ▼                                  ▼
+    [ 9. ML FORECASTING ]              [ 10. SIMULATION ENGINES ]           [ 11. REPORTING ENGINE ]
+ (Lag Features, Random Forest,       (Webster/HCM Delay Optimization,    (Pure-Python ReportLab PDF,
+  Honest N < 20 Threshold Label)      Emergency Green-Wave Priority)      RFC 4180 CSV, Zero Recalc)
+               │                                  │                                  │
+               └──────────────────────────────────┼──────────────────────────────────┘
+                                                  │
+                                                  ▼
+                                    [ 12. OPERATIONAL INTERFACES ]
+                                 (FastAPI REST Endpoints, OpenAPI Docs,
+                                  Dark-Mode React Command Dashboard)
+```
 
+---
+
+## 🌟 Implemented & Verified Capabilities (Phases 1–20)
+
+- **Video Ingestion & Validation (Phase 4):** Secure container magic-byte verification (ISO BMFF `ftyp`, `RIFF...AVI`, QuickTime), path-traversal prevention, streaming upload validation, and automatic temporary file cleanup.
+- **Vehicle Detection (Phase 5):** Ultralytics YOLOv8n multi-class classification (`car`, `motorcycle`, `bus`, `truck`, `bicycle`) running offline on CPU with bounded coordinates.
+- **Object Tracking (Phase 6):** ByteTrack 8-state Kalman filter motion prediction + two-stage IoU association with track lifecycle states (`NEW` -> `ACTIVE` -> `LOST` -> `TERMINATED`).
+- **Vehicle Counting (Phase 7):** Virtual line-crossing detector with 2D cross-product transition testing and persistent track-ID deduplication (zero double-counting).
+- **Traffic Flow Analytics (Phase 8):** Minute/hourly flow rates, class distributions, directional splits, and discrete time-series bucketing.
+- **Lane Analysis & Density (Phase 9):** Configurable 2D polygonal lane assignment, Shoelace area calculation, and image-space density estimation with calibration disclaimers.
+- **Database Integration & Persistence (Phase 10):** Relational persistence of sessions, metrics, lane occupancy, and crossing events with cascading cleanup.
+- **Short-Horizon Traffic Forecasting (Phase 11):** Non-leaking lag feature engineering, classical ML models (Random Forest, HistGradientBoosting, Ridge), empirical residual prediction intervals, and transparent handling of training observation thresholds ($N < 20$).
+- **Traffic Signal Optimization Simulation (Phase 12):** Deterministic baseline signal plans, 3 explainable optimization algorithms (Demand-Proportional, Webster's Method, Constrained Delay Minimization), Webster delay proxy modeling ($d_1 + d_2 - d_3$), and HCM Level of Service (LOS A–F).
+- **Emergency Corridor Simulation & Signal Priority (Phase 13):** Coordinated multi-intersection arterial progression, green wave preemption, queue clearance lead-time ($t_{\text{lead}} = Q \times h_d + 2$s), strict safety constraints ($g_{\text{min}} \ge 7$s, yellow $\ge 3$s, all-red $\ge 1$s, max priority cap $\le 80$s), and cross-street delay trade-off analysis.
+- **System-Wide Command Dashboard (Phase 14):** Unified aggregation endpoint (`GET /api/v1/dashboard/summary`) with strict read-only anti-trigger protection (zero inference/simulation on page load/refresh), 10 modular React widgets, 5-state explicit provenance qualification (`REAL DATA`, `SIMULATION`, `PREDICTION`, `SYNTHETIC`, `UNAVAILABLE`), and full data lineage trust boundary panel.
+- **Traffic Anomaly & Congestion Incident Detection (Phase 15):** Explainable statistical rule engine evaluating persisted traffic metrics across 4 transparent rules (Congestion Buildup, Abnormal Flow Drop $\ge 50\%$, Multi-Lane Imbalance $\ge 3.0$x, Image-Space Density Spike), 4-tier severity scaling (`low`, `medium`, `high`, `critical`), and automated CV persistence hook.
+- **Production Readiness & Observability Hardening (Phase 16):** Strict Pydantic v2 settings validation, deep health and readiness diagnostics (`/readiness`), bounded pagination on all list endpoints, standardized sanitized error envelopes, and cross-platform logging.
+- **Analysis Job Orchestration (Phase 17):** Non-blocking asynchronous CV execution via bounded in-process `ThreadPoolExecutor`, explicit state machine (`QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`/`CANCELLED`), token-based cooperative cancellation in tracker loops, honest frame-level progress tracking with indeterminate handling, startup stale-job recovery (`process_restarted_stale_job`), and idempotency conflict protection (HTTP 409 `duplicate_active_job`).
+- **Intelligent Traffic Insights & Explainable Decision Intelligence (Phase 18):** Deterministic synthesis layer evaluating persisted traffic data across 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`), strict epistemic separation (`Observed:` empirical measurements vs `Inferred:` deductive reasoning with confidence ratings), honest evidence packages (simulation flags, $N < 20$ sample ML threshold declarations, uncalibrated 2D pixel-space caveats), non-actuating advisory recommendations, deterministic deduplication hashing (`dedup_signature`), and state lifecycle tracking.
+- **Business-Grade Traffic Reporting & Export (Phase 19):** Structured, reproducible, downloadable reports in printable vector PDF (pure-Python ReportLab with `NumberedCanvas` "Page X of Y", dark theme headers, color-coded badges, limitation disclaimers) and clean RFC 4180 CSV for single analysis sessions and bounded historical time ranges ($\le 30$ days), zero metric recalculation invariant, mandatory 6-state truth labeling taxonomy (`OBSERVED`, `INFERRED`, `PREDICTED`, `SIMULATED`, `RECOMMENDED/ADVISORY`, `UNAVAILABLE`), and path-traversal security.
+- **Production Packaging & Deployment Readiness (Phase 20):** Multi-stage containerization (`backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`, `docker-compose.yml`), CI workflow (`.github/workflows/ci.yml`), environment configuration auditing, and comprehensive 16-point automated verification suite.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **Computer Vision** | Python 3.11+, OpenCV Headless, Ultralytics YOLOv8n, ByteTrack |
+| **Machine Learning** | scikit-learn, NumPy, Pandas |
+| **Backend Framework** | FastAPI, Pydantic v2, Pydantic-Settings, Uvicorn, SQLAlchemy 2.0, Alembic |
+| **Database** | PostgreSQL 16 (production/Docker) / SQLite (zero-config development & testing) |
+| **Reporting & Export** | ReportLab 5 (Vector PDF with NumberedCanvas), Python CSV (RFC 4180) |
+| **Frontend Framework** | React 18, TypeScript, Vite 5, Tailwind CSS, Lucide React, React Router 6 |
+| **Web Server / Proxy** | Nginx (Alpine) with SPA routing fallback & backend API reverse proxy |
+| **Containerization** | Docker, Docker Compose (Multi-stage builds, non-root users, health checks) |
+| **CI / Automation** | GitHub Actions (backend pytest on Python 3.11 + frontend typecheck and build on Node 20) |
+
+---
+
+## 🚀 Quick Start & Deployment Options
+
+### Option A: Docker Compose (Recommended for Containerized Run)
+
+1. **Clone the repository and prepare the environment:**
+
+   ```bash
+   git clone https://github.com/Akhil-Bansal17/ai-smart-traffic-intelligence-platform-v2.git
+   cd ai-smart-traffic-intelligence-platform-v2
+   cp .env.example .env
+   ```
+
+2. **Start the single-node stack with Docker Compose:**
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. **Access the application:**
+   - **Web Dashboard:** [http://localhost](http://localhost) (or [http://localhost:80](http://localhost:80))
+   - **Backend API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **Health Probe:** [http://localhost:8000/health](http://localhost:8000/health)
+   - **Readiness Diagnostics:** [http://localhost:8000/readiness](http://localhost:8000/readiness)
+
+4. **Stop the stack:**
+
+   ```bash
+   docker compose down
+   ```
+
+---
+
+### Option B: Local Development Setup
+
+#### Prerequisites
+- **Python**: 3.10+ (tested on Python 3.11–3.14)
+- **Node.js**: 18+ (tested on Node 20 / 22)
+- **Database**: SQLite (built-in zero configuration) or PostgreSQL 16+
+
+#### 1. Configure Environment
 ```bash
 cp .env.example .env
 ```
 
-For zero-config local development, SQLite is preconfigured out-of-the-box. To use PostgreSQL, update `DATABASE_URL` in `.env`:
+#### 2. Backend Setup & Database Migration
+```bash
+# Install dependencies
+pip install -r backend/requirements.txt
 
-```ini
-DATABASE_URL=postgresql://traffic_user:changeme@localhost:5432/traffic_platform
+# Run migrations
+cd backend
+alembic upgrade head
+cd ..
+
+# Start backend dev server
+uvicorn app.main:app --reload --port 8000 --app-dir backend
+```
+
+#### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+---
+
+## 📖 Interactive Platform Walkthrough / Demo Guide
+
+To demonstrate the full end-to-end traffic intelligence pipeline:
+
+1. **Check System Health:**
+   - Visit `http://localhost:8000/health` (liveness: 200 OK) and `http://localhost:8000/readiness` (diagnostics: database, storage, YOLO model weights, configuration).
+2. **Ingest a Traffic Video:**
+   - Navigate to **Video Ingestion** in the dashboard, upload a traffic video (`.mp4`, `.avi`, `.mov`).
+3. **Trigger Asynchronous Analysis Job:**
+   - Go to **Analysis Jobs**, create a new job selecting the uploaded video. Monitor the real-time frame progress bar and state transitions (`QUEUED` -> `RUNNING` -> `COMPLETED`).
+4. **Inspect Traffic Analytics & Lane Metrics:**
+   - Review volume counts, flow rates (veh/hr), directional distribution, and 2D polygonal lane utilization on the **Analytics** and **Lane Analysis** pages.
+5. **Review Detected Anomalies & Incident Alerts:**
+   - Open **Anomaly Detection** or view the `AlertsWidget` on the Command Dashboard to inspect congestion buildups, acute flow drops, or lane imbalances.
+6. **Examine Explainable Decision Intelligence Insights:**
+   - Open **Decision Intelligence** to view synthesized insights with explicit `Observed:` vs `Inferred:` evidence, confidence ratings, and advisory recommendations.
+7. **Run Decision-Support Simulations:**
+   - Open **Signal Optimization** to run Webster/HCM signal timing simulations.
+   - Open **Emergency Corridor** to simulate emergency vehicle arterial priority progression and trade-off analysis.
+8. **Generate & Download Business-Grade Reports:**
+   - Navigate to **Reports**, generate a report for the analysis session or date range, preview in the UI, and download vector **PDF** or tabular **CSV**.
+
+---
+
+## 🧪 Comprehensive Testing & Verification
+
+The platform maintains automated test and verification coverage with zero regressions:
+
+```bash
+# 1. Run full backend pytest suite (212 tests)
+python -m pytest backend/tests -v
+
+# 2. Run Phase 20 Production Readiness & Packaging Verification (16 checks)
+python scripts/verify_phase20_production_readiness.py
+
+# 3. Run individual phase verification scripts
+python scripts/verify_phase10_database.py
+python scripts/verify_phase15_anomaly_detection.py
+python scripts/verify_phase16_production_readiness.py
+python scripts/verify_phase17_job_orchestration.py
+python scripts/verify_phase18_decision_intelligence.py
+python scripts/verify_phase19_reporting.py
+
+# 4. Run frontend TypeScript typecheck and production build
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
 ```
 
 ---
 
-### Step 2: Backend Setup & Database Migrations
+## 🔒 Security, Trust Boundaries & Honest Limitations
 
-1. **Install backend dependencies:**
-
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-
-2. **Apply database schema migrations (Alembic):**
-
-   ```bash
-   cd backend
-   alembic upgrade head
-   cd ..
-   ```
-
-3. **Start the FastAPI development server:**
-
-   ```bash
-   uvicorn app.main:app --reload --app-dir backend --port 8000
-   ```
-
-   The backend will be available at:
-   - **API Root / Health:** `http://localhost:8000/health`
-   - **Readiness Diagnostic:** `http://localhost:8000/readiness`
-   - **Interactive OpenAPI / Swagger Docs:** `http://localhost:8000/docs`
-   - **ReDoc Documentation:** `http://localhost:8000/redoc`
+1. **Epistemic Truth Separation:** The platform strictly differentiates empirical video data (`OBSERVED`), deductive rules (`INFERRED`), predictive ML models (`PREDICTED`), mathematical simulations (`SIMULATED`), operational guidance (`RECOMMENDED/ADVISORY`), and missing data (`UNAVAILABLE`).
+2. **Forecasting Observation Threshold:** The short-horizon forecasting engine requires $\ge 20$ chronological traffic observations ($N \ge 20$). If real-world observations are below this threshold ($N < 20$), predictions are honestly presented as `UNAVAILABLE` without synthetic data substitution.
+3. **Simulation-Only Decision Support:** All signal timing and emergency green-wave simulations are mathematical approximations (Webster formula, HCM LOS, progression queues) and do not actuate real-world traffic controllers.
+4. **Read-Only Dashboard Guarantee:** Dashboard queries (`GET /api/v1/dashboard/summary`) are strictly read-only and never trigger background inference, model retraining, or database mutations.
+5. **Single-Node Architecture:** Designed for single-node deployment with bounded concurrency (`MAX_CONCURRENT_ANALYSIS_JOBS=2`) and CPU inference; not designed as a distributed cluster.
+6. **No Production RBAC / Auth:** User authentication and role-based access control are out of scope for this release; the platform is designed for trusted operator environments.
 
 ---
 
-### Step 3: Frontend Setup & Development
+## 📄 License & Provenance
 
-1. **Install frontend dependencies:**
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. **Start the Vite development server:**
-
-   ```bash
-   npm run dev
-   ```
-
-   The frontend dashboard will be available at `http://localhost:5173`.
-
-3. **Build & Typecheck verification:**
-
-   ```bash
-   npm run typecheck    # Strict TypeScript verification (tsc --noEmit)
-   npm run build        # Production bundle build (vite build)
-   ```
-
----
-
-### Step 4: Running Tests & Verification Suites
-
-- **Run all backend pytest suites (200 tests):**
-
-  ```bash
-  cd backend
-  python -m pytest tests
-  cd ..
-  ```
-
-- **Run standalone phase verification scripts:**
-
-  ```bash
-  # Standalone end-to-end Decision Intelligence verification (Phase 18)
-  python scripts/verify_phase18_decision_intelligence.py
-
-  # Standalone Async Analysis Job Orchestration verification (Phase 17)
-  python scripts/verify_phase17_job_orchestration.py
-
-  # Standalone Production Readiness & Diagnostic verification (Phase 16)
-  python scripts/verify_phase16_production_readiness.py
-
-  # Standalone Anomaly & Congestion Detection verification (Phase 15)
-  python scripts/verify_phase15_anomaly_detection.py
-
-  # Standalone Command Dashboard verification (Phase 14)
-  python scripts/verify_phase14_dashboard.py
-  ```
-
----
-
-## API Surface Overview
-
-All REST API endpoints are versioned under `/api/v1` (with root-level unversioned infrastructure health endpoints):
-
-| Category | Endpoint | Method | Description |
-|---|---|---|---|
-| **System** | `/health` | `GET` | Unversioned liveness check for load balancers and containers |
-| | `/readiness` | `GET` | Deep diagnostic probe verifying database, storage, and model weights |
-| | `/api/v1/health` | `GET` | Versioned API subsystem health report |
-| **Video Ingestion** | `/api/v1/videos/upload` | `POST` | Validated video upload with magic-byte check and path sanitation |
-| | `/api/v1/videos` | `GET` | Paginated listing of ingested video records |
-| | `/api/v1/videos/{id}` | `GET` | Detailed metadata for a specific video |
-| **Computer Vision** | `/api/v1/detection/videos/{id}` | `POST` | YOLOv8n multi-class vehicle detection |
-| | `/api/v1/tracking/videos/{id}` | `POST` | ByteTrack Kalman-filter multi-object tracking |
-| | `/api/v1/counting/videos/{id}` | `POST` | Directional virtual line-crossing vehicle count |
-| | `/api/v1/analytics/videos/{id}` | `POST` | Flow rate, class distribution, and time-series bucketing |
-| | `/api/v1/lane-analysis/videos/{id}` | `POST` | 2D polygon lane occupancy and image-space density |
-| **Analysis Sessions** | `/api/v1/analysis/videos/{id}/run` | `POST` | Execute full CV pipeline synchronously and persist session |
-| | `/api/v1/analysis/sessions` | `GET` | Paginated query of historical analysis sessions |
-| | `/api/v1/analysis/sessions/{id}` | `GET` | Full session detail with metrics, lane polygons, and crossing logs |
-| **Job Orchestration** | `/api/v1/analysis/jobs` | `POST` | Enqueue non-blocking background CV analysis job |
-| | `/api/v1/analysis/jobs` | `GET` | List active and historical analysis jobs with live progress |
-| | `/api/v1/analysis/jobs/{id}` | `GET` | Real-time job status, stage, and frame-level progress |
-| | `/api/v1/analysis/jobs/{id}/cancel` | `POST` | Cooperatively cancel an in-progress analysis job |
-| **ML Forecasting** | `/api/v1/predictions/readiness` | `GET` | 3-tier data provenance readiness check ($N \ge 20$ sample threshold) |
-| | `/api/v1/predictions/train` | `POST` | Train forecasting model (Random Forest, HistGradientBoosting, Ridge) |
-| | `/api/v1/predictions/runs` | `GET` | List historical forecasting runs |
-| | `/api/v1/predictions/runs/{id}` | `GET` | Multi-step forecast trajectory with empirical residual intervals |
-| **Signal Simulation** | `/api/v1/signal-optimization/presets` | `GET` | Preconfigured intersection topologies and demand scenarios |
-| | `/api/v1/signal-optimization/simulate` | `POST` | Fixed-time baseline vs Webster/Delay-optimized signal timing simulation |
-| | `/api/v1/signal-optimization/runs` | `GET` | Historical signal simulation runs and Level of Service (LOS) records |
-| **Emergency Priority** | `/api/v1/emergency-corridor/presets` | `GET` | Preconfigured arterial corridors and emergency vehicle scenarios |
-| | `/api/v1/emergency-corridor/simulate` | `POST` | Coordinated green wave arterial priority simulation with safety caps |
-| | `/api/v1/emergency-corridor/runs` | `GET` | Historical corridor simulation runs and delay trade-off records |
-| **Command Dashboard** | `/api/v1/dashboard/summary` | `GET` | Unified read-only single-roundtrip system intelligence aggregation |
-| **Anomaly Detection** | `/api/v1/anomalies` | `GET` | Query traffic anomaly and congestion incident events |
-| | `/api/v1/anomalies/{id}/status` | `PATCH` | Update incident lifecycle state (`open`, `acknowledged`, `resolved`) |
-| **Decision Intelligence** | `/api/v1/insights/generate` | `POST` | Evaluate 7 deterministic rule categories and synthesize insights |
-| | `/api/v1/insights` | `GET` | List insights with epistemic separation (`Observed:` vs `Inferred:`) |
-| | `/api/v1/insights/{id}` | `GET` | Detailed insight package with full evidence and advisory recommendations |
-| | `/api/v1/insights/{id}/status` | `PATCH` | Transition lifecycle state (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`) |
-
----
-
-## Developer Troubleshooting & Environment Notes
-
-- **PyTorch / YOLO CPU Execution:**
-  By default, `YOLO_DEVICE=cpu` is set in `.env.example` for universal compatibility without requiring a dedicated CUDA GPU.
-- **Data Provenance & ML Boundary:**
-  In compliance with Phase 11 trust boundaries, forecasting models require at least 20 genuine real-world observations before training on real data. When fewer samples exist, the readiness API transparently declares `is_ready=False` and offers explicit developer fixture fallback options.
-- **Simulation Transparency:**
-  All signal optimization and emergency corridor metrics are generated within validated decision-support simulation engines and explicitly tagged `is_simulation=True`. They do not actuate physical hardware.
-- **Windows UTF-8 Encoding:**
-  When executing verification scripts directly on Windows PowerShell, ensure console UTF-8 support (handled automatically in Python scripts via `sys.stdout.reconfigure(encoding="utf-8")`).
-
-## A Note on Honesty
-
-This project follows a strict no-fake-results rule: unmeasured numbers are reported as "Not yet measured," simulated features are labeled "Simulation," and planned-but-unbuilt features are labeled "Planned." That rule applies to this README too.
+- **License:** MIT License. See [`LICENSE`](file:///c:/Users/Akhil/Downloads/ai-smart-traffic-intelligence-platform%203/ai-smart-traffic-intelligence-platform/LICENSE) for details.
+- **Model Weights:** Ultralytics YOLOv8n (AGPL-3.0 / Ultralytics license).

@@ -1,3 +1,27 @@
+# PHASE 19 — Business-Grade Traffic Reporting & Export System
+
+> Repository: `Akhil-Bansal17/ai-smart-traffic-intelligence-platform-v2`. Before any implementation, inspect the actual current repository — the summary of Phases 1–18 below is the planning team's understanding, not verified fact. If the repository differs from anything stated here, the repository wins; note the discrepancy in your final report and adapt accordingly rather than proceeding on a false assumption.
+
+## Role
+
+You are the implementation, testing, verification, and Git agent for this platform. Your job is to inspect the real repository, then design and build Phase 19 — a trustworthy reporting/export layer over the already-built traffic intelligence system. This is an output layer, not a second analytics engine.
+
+## Required Reading / Inspection (before writing any code)
+
+Inspect at minimum: the project's root documentation (README, architecture docs, project-status docs), the existing backend structure (models, schemas, API routers, services, configuration, migrations), the existing frontend structure (pages, components, API client, routing, types), and — specifically — the actual current implementations of: `AnalysisSession`, `TrafficMetricsRecord`, `LaneResultRecord`, `CrossingEventRecord`, the Phase 15 anomaly/incident structures, the Phase 11 `PredictionRun`/forecasting persistence, the Phase 12 `SignalSimulationRun`-equivalent, the Phase 13 `EmergencyCorridorRun`-equivalent, the Phase 16 production-readiness/resource-limit configuration style, the Phase 17 `AnalysisJob` orchestration system, and the Phase 18 insight-engine structures and its observed/inferred/provenance vocabulary. Do not assume any of this exists in the exact shape described in this prompt — confirm it against the actual code, and reuse whatever naming/conventions the repository has already established rather than introducing parallel ones.
+
+## Context — What Must Be Preserved, Untouched
+
+Treat Phases 1–18 as completed, verified infrastructure unless the repository gives concrete evidence otherwise. In particular:
+
+- **Phase 11 stays closed as-is.** It currently has 10 genuine real-world observations, below its 20-sample training threshold, and real-world forecasting is honestly marked partially/not verified. **Do not reopen Phase 11, do not lower its threshold, do not fabricate real-world training data, and do not let this reporting phase quietly imply real-world forecasting is more mature than it is.**
+- **Phase 12/13 remain explicitly labeled simulation/decision-support**, never real signal or emergency-vehicle control.
+- **Phase 14's dashboard stays read-only** — nothing in this phase may make dashboard loading trigger report generation or any other side effect.
+- Do not redesign the detector, tracker, forecasting architecture, or any other already-verified subsystem to accommodate reporting. If something about an existing subsystem is genuinely broken and blocks this phase, fix only the smallest correct thing and document why.
+
+## Workflow
+READ → INSPECT → PLAN → IMPLEMENT INCREMENTALLY → TEST → VERIFY
+→ REGRESSION → DOCUMENT → GIT REVIEW → REPORT
 
 Let an operator select an analysis session or time range and generate a structured, reproducible, downloadable report (PDF, and CSV for tabular metrics if it fits cleanly) covering: traffic overview, vehicle composition, directional flow, lane-level metrics, detected anomalies/incidents, intelligent insights, prediction availability/status, signal-optimization simulation results, emergency-corridor simulation results, provenance/data-quality information, and explicit observed-vs-inferred-vs-predicted-vs-simulated labeling, plus report metadata and a generation timestamp. **Never recompute core traffic metrics differently inside the reporting layer — every important number must originate from persisted application data or an existing deterministic service.** If data is genuinely unavailable, represent it explicitly as "Not available" — never fabricate or silently substitute.
 
