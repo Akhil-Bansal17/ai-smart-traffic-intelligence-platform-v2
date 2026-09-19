@@ -4,6 +4,7 @@
 # Multi-stage build:
 # Stage 1: Compiles TypeScript and builds production assets with Vite
 # Stage 2: Serves static bundle via lightweight Nginx with SPA routing & reverse proxy
+# Includes Alpine security updates to patch base image CVEs.
 # ==============================================================================
 
 # --- Stage 1: Build Environment ---
@@ -25,10 +26,11 @@ RUN npm run build
 # --- Stage 2: Production Web Server ---
 FROM nginx:alpine
 
-# Remove default nginx html
-RUN rm -rf /usr/share/nginx/html/*
+# Upgrade Alpine base packages to latest security patches and clean default files
+RUN apk update && apk upgrade --no-cache && \
+    rm -rf /usr/share/nginx/html/*
 
-# Copy built assets from builder stage
+# Copy built static assets from builder stage (no node_modules or build tools in runtime)
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy custom Nginx configuration

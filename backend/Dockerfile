@@ -3,9 +3,10 @@
 # ==============================================================================
 # Multi-stage / lightweight Python container running FastAPI with OpenCV headless.
 # Non-root user execution, explicit health check, and volume mounts for persistence.
+# Includes OS security updates to patch base image CVEs.
 # ==============================================================================
 
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -14,13 +15,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install runtime system dependencies for OpenCV, PostgreSQL, and health probing
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
-    libpq5 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Upgrade OS packages to apply latest Debian security patches, then install runtime libraries
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+        libpq5 \
+        curl \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create a dedicated non-root user
 RUN groupadd -g 1000 appgroup && \
