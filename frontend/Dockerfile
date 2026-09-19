@@ -24,7 +24,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # --- Stage 2: Production Web Server ---
-FROM nginx:alpine
+FROM nginx:alpine-slim
 
 # Upgrade Alpine base packages to latest security patches and clean default files
 RUN apk update && apk upgrade --no-cache && \
