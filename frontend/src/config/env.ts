@@ -8,16 +8,10 @@
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-if (!rawApiBaseUrl) {
-  const errorMsg = 
-    '[CONFIG ERROR] VITE_API_BASE_URL is not set in the environment!\n' +
-    'Please configure VITE_API_BASE_URL in your .env file (e.g., VITE_API_BASE_URL=http://localhost:8000).';
-  console.error(`%c${errorMsg}`, 'background: #7f1d1d; color: #fecaca; font-weight: bold; padding: 4px;');
-}
-
 export const config = {
   /**
    * The base URL for the backend API service (e.g. http://localhost:8000).
+   * Defaults to empty string for relative paths (e.g. reverse proxy or Vercel rewrites).
    * Strips any trailing slash for consistent endpoint joining.
    */
   apiBaseUrl: (rawApiBaseUrl || '').replace(/\/+$/, ''),
@@ -27,10 +21,5 @@ export const config = {
 } as const;
 
 export function getApiBaseUrl(): string {
-  if (!config.apiBaseUrl) {
-    throw new Error(
-      'Missing required environment variable: VITE_API_BASE_URL. Ensure .env is present and configured.'
-    );
-  }
   return config.apiBaseUrl;
 }
