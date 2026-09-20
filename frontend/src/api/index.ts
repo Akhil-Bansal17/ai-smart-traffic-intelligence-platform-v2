@@ -14,5 +14,6 @@ export * from './dashboard';
 export * from './anomalies';
 export * from './insights';
 export * from './reports';
+export * from './cameraSources';
 
 

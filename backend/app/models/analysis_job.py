@@ -48,10 +48,22 @@ class AnalysisJob(Base):
         default=lambda: str(uuid.uuid4()),
         index=True,
     )
-    video_id: Mapped[str] = mapped_column(
+    video_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("videos.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    camera_source_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("camera_sources.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    job_mode: Mapped[str] = mapped_column(
+        String(32),
         nullable=False,
+        default="file_analysis",
         index=True,
     )
     session_id: Mapped[Optional[str]] = mapped_column(
@@ -146,10 +158,12 @@ class AnalysisJob(Base):
 
     # Relationships
     video = relationship("Video", backref="analysis_jobs")
+    camera_source = relationship("CameraSource", back_populates="analysis_jobs")
     analysis_session = relationship("AnalysisSession", backref="analysis_jobs")
 
     def __repr__(self) -> str:
         return (
-            f"<AnalysisJob(id={self.id}, video_id={self.video_id}, "
+            f"<AnalysisJob(id={self.id}, mode={self.job_mode}, "
+            f"video_id={self.video_id}, camera_source_id={self.camera_source_id}, "
             f"status={self.status}, progress={self.progress})>"
         )

@@ -117,7 +117,9 @@ class AnalysisSessionSummarySchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    video_id: str
+    video_id: Optional[str] = None
+    camera_source_id: Optional[str] = None
+    session_mode: str = "FILE_ANALYSIS"
     video_filename: Optional[str] = None
     analysis_type: str
     status: str
@@ -135,7 +137,9 @@ class AnalysisSessionDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    video_id: str
+    video_id: Optional[str] = None
+    camera_source_id: Optional[str] = None
+    session_mode: str = "FILE_ANALYSIS"
     video_filename: Optional[str] = None
     analysis_type: str
     status: str

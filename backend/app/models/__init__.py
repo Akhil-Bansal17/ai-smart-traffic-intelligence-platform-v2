@@ -6,6 +6,11 @@ from app.models.analysis import (
 )
 from app.models.analysis_job import AnalysisJob, JobStatus
 from app.models.anomaly import AnomalyEvent
+from app.models.camera_source import (
+    CameraSource,
+    CameraSourceStatus,
+    CameraSourceType,
+)
 from app.models.corridor_simulation import EmergencyCorridorSimulationRun
 from app.models.insight import (
     InsightCategory,
@@ -35,6 +40,9 @@ __all__ = [
     "LaneResultRecord",
     "CrossingEventRecord",
     "AnomalyEvent",
+    "CameraSource",
+    "CameraSourceStatus",
+    "CameraSourceType",
     "AnalysisJob",
     "JobStatus",
     "PredictionRun",

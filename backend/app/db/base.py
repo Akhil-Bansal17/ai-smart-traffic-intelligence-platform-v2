@@ -11,6 +11,7 @@ from app.models.analysis import (  # noqa: F401
 )
 from app.models.analysis_job import AnalysisJob  # noqa: F401
 from app.models.anomaly import AnomalyEvent  # noqa: F401
+from app.models.camera_source import CameraSource  # noqa: F401
 from app.models.corridor_simulation import EmergencyCorridorSimulationRun  # noqa: F401
 from app.models.insight import TrafficInsight  # noqa: F401
 from app.models.prediction import (  # noqa: F401
@@ -29,6 +30,7 @@ __all__ = [
     "LaneResultRecord",
     "CrossingEventRecord",
     "AnomalyEvent",
+    "CameraSource",
     "AnalysisJob",
     "PredictionRun",
     "PredictionItem",

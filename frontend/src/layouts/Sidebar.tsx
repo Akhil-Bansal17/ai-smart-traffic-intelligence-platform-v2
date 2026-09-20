@@ -26,6 +26,7 @@ export interface NavItem {
 const mainNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Video Analysis', path: '/video-analysis', icon: Video, phaseTag: 'Ph 4-8' },
+  { name: 'Live Monitoring', path: '/live-monitoring', icon: Radio, phaseTag: 'Ph 21' },
   { name: 'Traffic Analytics', path: '/traffic-analytics', icon: BarChart3, phaseTag: 'Ph 9' },
   { name: 'Predictions', path: '/predictions', icon: TrendingUp, phaseTag: 'Ph 13' },
   { name: 'Signal Optimization', path: '/signal-optimization', icon: Sliders, phaseTag: 'Ph 14', isSimulation: true },

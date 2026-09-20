@@ -66,7 +66,9 @@ export interface CrossingEventRecord {
 
 export interface AnalysisSessionSummary {
   id: string;
-  video_id: string;
+  video_id?: string | null;
+  camera_source_id?: string | null;
+  session_mode?: string;
   video_filename?: string | null;
   analysis_type: string;
   status: string;
@@ -111,7 +113,9 @@ export type AnalysisJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 
 
 export interface AnalysisJob {
   id: string;
-  video_id: string;
+  video_id?: string | null;
+  camera_source_id?: string | null;
+  job_mode?: string;
   session_id?: string | null;
   status: AnalysisJobStatus;
   analysis_type: string;

@@ -100,6 +100,15 @@ class Settings(BaseSettings):
     max_report_time_range_days: int = 30
     max_report_file_size_mb: int = 50
 
+    # --- Live Traffic Monitoring & Camera Source Management (Phase 21) ---
+    max_live_streams: int = 2
+    live_frame_queue_size: int = 2
+    live_max_processing_fps: int = 5
+    live_reconnect_attempts: int = 3
+    live_reconnect_delay_seconds: float = 2.0
+    live_frame_timeout_seconds: float = 5.0
+    live_metrics_interval_seconds: int = 10
+
     @field_validator("max_report_time_range_days")
     @classmethod
     def validate_report_time_range(cls, v: int) -> int:
@@ -238,6 +247,48 @@ class Settings(BaseSettings):
     def validate_insight_positive_floats(cls, v: float) -> float:
         if v <= 0.0:
             raise ValueError(f"Threshold must be positive, got {v}")
+        return v
+
+    @field_validator("max_live_streams")
+    @classmethod
+    def validate_max_live_streams(cls, v: int) -> int:
+        if v < 1 or v > 5:
+            raise ValueError(f"max_live_streams must be between 1 and 5, got {v}")
+        return v
+
+    @field_validator("live_frame_queue_size")
+    @classmethod
+    def validate_live_queue_size(cls, v: int) -> int:
+        if v < 1 or v > 10:
+            raise ValueError(f"live_frame_queue_size must be between 1 and 10, got {v}")
+        return v
+
+    @field_validator("live_max_processing_fps")
+    @classmethod
+    def validate_live_fps(cls, v: int) -> int:
+        if v < 1 or v > 30:
+            raise ValueError(f"live_max_processing_fps must be between 1 and 30, got {v}")
+        return v
+
+    @field_validator("live_reconnect_attempts")
+    @classmethod
+    def validate_live_reconnect_attempts(cls, v: int) -> int:
+        if v < 0 or v > 10:
+            raise ValueError(f"live_reconnect_attempts must be between 0 and 10, got {v}")
+        return v
+
+    @field_validator("live_reconnect_delay_seconds", "live_frame_timeout_seconds")
+    @classmethod
+    def validate_live_timeouts(cls, v: float) -> float:
+        if v <= 0.0 or v > 60.0:
+            raise ValueError(f"Timeout/delay must be within (0.0, 60.0] seconds, got {v}")
+        return v
+
+    @field_validator("live_metrics_interval_seconds")
+    @classmethod
+    def validate_live_interval(cls, v: int) -> int:
+        if v < 1 or v > 60:
+            raise ValueError(f"live_metrics_interval_seconds must be between 1 and 60, got {v}")
         return v
 
     @model_validator(mode="after")

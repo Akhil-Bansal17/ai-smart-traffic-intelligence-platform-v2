@@ -25,6 +25,7 @@ from app.core.logging import get_logger
 from app.db.session import SessionLocal
 from app.models.analysis import AnalysisSession
 from app.models.analysis_job import AnalysisJob, JobStatus
+from app.models.camera_source import CameraSource
 from app.models.video import Video
 from app.schemas.analysis import AnalysisRunRequest
 from app.schemas.analysis_job import AnalysisJobCreateRequest, AnalysisJobResponse
@@ -33,6 +34,10 @@ from app.schemas.lane_analysis import LaneRegionSchema
 from app.services.cv.analysis_persistence_service import (
     AnalysisPersistenceService,
     get_analysis_persistence_service,
+)
+from app.services.cv.live_analysis_service import (
+    LiveAnalysisService,
+    LiveMetricsSnapshot,
 )
 from app.services.cv.tracker import JobCancelledException
 
@@ -66,6 +71,7 @@ class AnalysisJobManager:
         self._lock = threading.Lock()
         self._cancellation_events: Dict[str, threading.Event] = {}
         self._active_job_ids: Set[str] = set()
+        self._live_services: Dict[str, LiveAnalysisService] = {}
         self._shutdown = False
 
     def set_session_factory(self, session_factory: Any) -> None:
@@ -183,6 +189,167 @@ class AnalysisJobManager:
 
         return job
 
+    def submit_live_job(
+        self,
+        db: Session,
+        camera_source_id: str,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> AnalysisJob:
+        """
+        Initiates an asynchronous live traffic monitoring job for a CameraSource.
+        """
+        camera = db.query(CameraSource).filter(CameraSource.id == camera_source_id).first()
+        if not camera:
+            raise AppException(
+                f"Camera source with ID '{camera_source_id}' not found.",
+                code="camera_source_not_found",
+                status_code=404,
+            )
+
+        if not camera.enabled:
+            raise AppException(
+                f"Camera source '{camera.name}' is disabled. Enable it before starting monitoring.",
+                code="camera_source_disabled",
+                status_code=400,
+            )
+
+        # Duplicate check
+        active_live = (
+            db.query(AnalysisJob)
+            .filter(
+                AnalysisJob.camera_source_id == camera_source_id,
+                AnalysisJob.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+            )
+            .first()
+        )
+        if active_live:
+            raise AppException(
+                f"An active live monitoring job '{active_live.id}' is already {active_live.status} for camera '{camera.name}'.",
+                code="duplicate_live_job",
+                status_code=409,
+            )
+
+        # Max live streams concurrency check
+        active_live_count = (
+            db.query(AnalysisJob)
+            .filter(
+                AnalysisJob.job_mode == "live_analysis",
+                AnalysisJob.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+            )
+            .count()
+        )
+        if active_live_count >= settings.max_live_streams:
+            raise AppException(
+                f"Maximum concurrent live streams limit ({settings.max_live_streams}) reached. Stop an active stream before starting a new one.",
+                code="max_live_streams_exceeded",
+                status_code=429,
+            )
+
+        # Provenance
+        if camera.source_type == "test_fixture":
+            provenance = "test_fixture_observation"
+            is_syn = True
+        elif camera.source_type in ("local_camera", "rtsp"):
+            provenance = "live_observation"
+            is_syn = False
+        else:
+            provenance = "unverified_live"
+            is_syn = False
+
+        job_config = config or {}
+
+        job = AnalysisJob(
+            video_id=None,
+            camera_source_id=camera.id,
+            job_mode="live_analysis",
+            status=JobStatus.QUEUED.value,
+            analysis_type="live_monitoring",
+            progress=None,
+            frames_processed=0,
+            total_frames=None,
+            config_snapshot=job_config,
+            provenance_category=provenance,
+            is_synthetic=is_syn,
+            created_at=utcnow(),
+            updated_at=utcnow(),
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+        # Instantiate and start live service
+        service = LiveAnalysisService(
+            job_id=job.id,
+            camera_source_id=camera.id,
+            source_type=camera.source_type,
+            connection_uri=camera.connection_uri,
+            camera_name=camera.name,
+            config=job_config,
+            session_factory=self._session_factory,
+        )
+
+        with self._lock:
+            self._live_services[job.id] = service
+            self._live_services[camera.id] = service
+
+        service.start()
+        logger.info("Submitted live analysis job %s for camera %s", job.id, camera.id)
+        return job
+
+    def stop_live_job(self, db: Session, job_id_or_camera_id: str) -> AnalysisJob:
+        """
+        Gracefully stops an active live monitoring job, triggering session persistence.
+        """
+        job = (
+            db.query(AnalysisJob)
+            .filter(
+                (AnalysisJob.id == job_id_or_camera_id) | (AnalysisJob.camera_source_id == job_id_or_camera_id),
+                AnalysisJob.job_mode == "live_analysis",
+                AnalysisJob.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+            )
+            .order_by(AnalysisJob.created_at.desc())
+            .first()
+        )
+        if not job:
+            raise AppException(
+                f"No active live monitoring job found for '{job_id_or_camera_id}'.",
+                code="live_job_not_found",
+                status_code=404,
+            )
+
+        with self._lock:
+            service = self._live_services.get(job.id) or self._live_services.get(job.camera_source_id or "")
+
+        if service and service.is_running():
+            service.stop()
+            service.join(timeout=3.0)
+            with self._lock:
+                self._live_services.pop(job.id, None)
+                if job.camera_source_id:
+                    self._live_services.pop(job.camera_source_id, None)
+        else:
+            job.status = JobStatus.CANCELLED.value
+            job.completed_at = utcnow()
+            job.updated_at = utcnow()
+            db.commit()
+
+        db.refresh(job)
+        return job
+
+    def get_live_status(self, camera_source_id: str) -> Optional[LiveMetricsSnapshot]:
+        with self._lock:
+            service = self._live_services.get(camera_source_id)
+        if service:
+            return service.get_snapshot()
+        return None
+
+    def get_preview_jpeg(self, camera_source_id: str) -> Optional[bytes]:
+        with self._lock:
+            service = self._live_services.get(camera_source_id)
+        if service:
+            return service.get_latest_preview()
+        return None
+
     def cancel_job(self, db: Session, job_id: str) -> AnalysisJob:
         """
         Requests cooperative cancellation of a queued or running job.
@@ -195,6 +362,9 @@ class AnalysisJobManager:
                 code="job_not_found",
                 status_code=404,
             )
+
+        if job.job_mode == "live_analysis":
+            return self.stop_live_job(db, job_id)
 
         if job.status in (
             JobStatus.COMPLETED.value,
@@ -417,11 +587,16 @@ class AnalysisJobManager:
             db.close()
 
     def shutdown(self, wait: bool = False) -> None:
-        """Gracefully shuts down the background worker pool."""
+        """Gracefully shuts down the background worker pool and stops any active live monitoring streams."""
         self._shutdown = True
         with self._lock:
             for event in self._cancellation_events.values():
                 event.set()
+            for service in list(self._live_services.values()):
+                try:
+                    service.stop()
+                except Exception as e:
+                    logger.debug("Error stopping live service on shutdown: %s", e)
         self._executor.shutdown(wait=wait, cancel_futures=True)
         logger.info("AnalysisJobManager worker pool shut down")
 

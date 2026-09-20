@@ -1,8 +1,8 @@
 # 🚦 AI Smart Traffic Intelligence Platform
 
-> **Status: Production Packaged & Verified (Phases 1–20 Complete).** See [`PROJECT_STATUS.md`](file:///c:/Users/Akhil/Downloads/ai-smart-traffic-intelligence-platform%203/ai-smart-traffic-intelligence-platform/PROJECT_STATUS.md) for live test evidence, 212 passed backend unit/integration tests, 16/16 Phase 20 verification checks, and complete subsystem test results.
+> **Status: Live Traffic Monitoring & Production Packaged (Phases 1–21 Complete).** See [`PROJECT_STATUS.md`](file:///c:/Users/Akhil/Downloads/ai-smart-traffic-intelligence-platform%203/ai-smart-traffic-intelligence-platform/PROJECT_STATUS.md) for live test evidence, 220 passed backend unit/integration tests, 16/16 Phase 21 verification checks, and complete subsystem test results.
 
-An end-to-end AI-powered traffic intelligence and decision-support platform: computer vision (YOLOv8 vehicle detection + ByteTrack multi-object tracking) feeding a traffic-analytics engine, an explainable ML prediction service, two explicitly-labeled decision-support simulations (signal timing optimization, emergency corridor routing), an explainable decision intelligence layer, and business-grade traffic reporting in vector PDF and CSV formats. Built end-to-end as a modular monolith with FastAPI, PostgreSQL/SQLite, and a dark-mode React/TypeScript frontend — not a single-notebook demo.
+An end-to-end AI-powered traffic intelligence and decision-support platform: computer vision (YOLOv8 vehicle detection + ByteTrack multi-object tracking) feeding a traffic-analytics engine, an explainable ML prediction service, two explicitly-labeled decision-support simulations (signal timing optimization, emergency corridor routing), an explainable decision intelligence layer, business-grade traffic reporting, and continuous edge live traffic monitoring. Built end-to-end as a modular monolith with FastAPI, PostgreSQL/SQLite, and a dark-mode React/TypeScript frontend — not a single-notebook demo.
 
 > **Safety & Operational Scope Disclaimer:** *This system provides traffic analytics, signal timing optimization simulations, emergency corridor simulations, anomaly detection, operational recommendations, and reporting purely for decision support; it does not directly control physical traffic signals, emergency vehicles, or municipal dispatch infrastructure.*
 
@@ -15,10 +15,13 @@ An end-to-end AI-powered traffic intelligence and decision-support platform: com
 |                                       END-TO-END DATA FLOW                                        |
 +---------------------------------------------------------------------------------------------------+
                                                   │
-                                                  ▼
-                                     [ 1. VIDEO INGESTION ]
-                                (Container Magic-Byte Check,
-                                  Path Sanitization, 500MB)
+                 ┌────────────────────────────────┴────────────────────────────────┐
+                 ▼                                                                 ▼
+      [ 1A. VIDEO INGESTION ]                                           [ 1B. LIVE CAMERA STREAMS ]
+   (Container Magic-Byte Check,                                        (RTSP / HTTP / USB / Fixture,
+     Path Sanitization, 500MB)                                         Bounded Queue, Drop Overruns)
+                 │                                                                 │
+                 └────────────────────────────────┬────────────────────────────────┘
                                                   │
                                                   ▼
                                       [ 2. YOLOv8n DETECTION ]
@@ -62,12 +65,12 @@ An end-to-end AI-powered traffic intelligence and decision-support platform: com
                                                   ▼
                                     [ 12. OPERATIONAL INTERFACES ]
                                  (FastAPI REST Endpoints, OpenAPI Docs,
-                                  Dark-Mode React Command Dashboard)
+                                  Live Monitoring Console, React UI)
 ```
 
 ---
 
-## 🌟 Implemented & Verified Capabilities (Phases 1–20)
+## 🌟 Implemented & Verified Capabilities (Phases 1–21)
 
 - **Video Ingestion & Validation (Phase 4):** Secure container magic-byte verification (ISO BMFF `ftyp`, `RIFF...AVI`, QuickTime), path-traversal prevention, streaming upload validation, and automatic temporary file cleanup.
 - **Vehicle Detection (Phase 5):** Ultralytics YOLOv8n multi-class classification (`car`, `motorcycle`, `bus`, `truck`, `bicycle`) running offline on CPU with bounded coordinates.
@@ -86,6 +89,7 @@ An end-to-end AI-powered traffic intelligence and decision-support platform: com
 - **Intelligent Traffic Insights & Explainable Decision Intelligence (Phase 18):** Deterministic synthesis layer evaluating persisted traffic data across 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`), strict epistemic separation (`Observed:` empirical measurements vs `Inferred:` deductive reasoning with confidence ratings), honest evidence packages (simulation flags, $N < 20$ sample ML threshold declarations, uncalibrated 2D pixel-space caveats), non-actuating advisory recommendations, deterministic deduplication hashing (`dedup_signature`), and state lifecycle tracking.
 - **Business-Grade Traffic Reporting & Export (Phase 19):** Structured, reproducible, downloadable reports in printable vector PDF (pure-Python ReportLab with `NumberedCanvas` "Page X of Y", dark theme headers, color-coded badges, limitation disclaimers) and clean RFC 4180 CSV for single analysis sessions and bounded historical time ranges ($\le 30$ days), zero metric recalculation invariant, mandatory 6-state truth labeling taxonomy (`OBSERVED`, `INFERRED`, `PREDICTED`, `SIMULATED`, `RECOMMENDED/ADVISORY`, `UNAVAILABLE`), and path-traversal security.
 - **Production Packaging & Deployment Readiness (Phase 20):** Multi-stage containerization (`backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`, `docker-compose.yml`), CI workflow (`.github/workflows/ci.yml`), environment configuration auditing, and comprehensive 16-point automated verification suite.
+- **Live Traffic Monitoring & Camera Source Management (Phase 21):** Dynamic camera source registry (`CameraSource`), direct reuse of the primary CV pipeline (YOLOv8 + ByteTrack + tripwire counting + lane assignment) without inference duplication, bounded thread queue (`maxsize=2`) with frame-dropping policy to prevent lag, atomic in-memory annotated preview frame buffer (`GET /preview.jpg`), short-interval polling telemetry (`GET /live-status`) eliminating WebSocket/broker complexity, automatic URI credential masking (`***`), synthetic test fixture generator for CI/offline validation, and automatic session persistence on stop.
 
 ---
 
@@ -194,6 +198,13 @@ To demonstrate the full end-to-end traffic intelligence pipeline:
    - Open **Emergency Corridor** to simulate emergency vehicle arterial priority progression and trade-off analysis.
 8. **Generate & Download Business-Grade Reports:**
    - Navigate to **Reports**, generate a report for the analysis session or date range, preview in the UI, and download vector **PDF** or tabular **CSV**.
+9. **Live Edge Traffic Monitoring & Camera Management:**
+   - Navigate to **Live Monitoring** (`/live-monitoring`).
+   - Register a camera feed (RTSP stream, USB webcam device index, HTTP MJPEG, or built-in deterministic `test_fixture`).
+   - Run a connection test probe (`Test Connection`) to verify reachability and dimensions.
+   - Click **Start Live Monitoring** to spin up the dedicated background worker thread.
+   - Observe live short-polling telemetry (volume, flow, active tracks, FPS, lane density) and real-time annotated frame previews.
+   - Click **Stop Stream** to cleanly join the worker thread, finalize the session into a durable `AnalysisSession`, trigger incident anomaly checks, and view results in the history catalog.
 
 ---
 
@@ -202,11 +213,11 @@ To demonstrate the full end-to-end traffic intelligence pipeline:
 The platform maintains automated test and verification coverage with zero regressions:
 
 ```bash
-# 1. Run full backend pytest suite (212 tests)
+# 1. Run full backend pytest suite (220 tests)
 python -m pytest backend/tests -v
 
-# 2. Run Phase 20 Production Readiness & Packaging Verification (16 checks)
-python scripts/verify_phase20_production_readiness.py
+# 2. Run Phase 21 Live Monitoring Verification (16 checks)
+python scripts/verify_phase21_live_monitoring.py
 
 # 3. Run individual phase verification scripts
 python scripts/verify_phase10_database.py
@@ -215,6 +226,7 @@ python scripts/verify_phase16_production_readiness.py
 python scripts/verify_phase17_job_orchestration.py
 python scripts/verify_phase18_decision_intelligence.py
 python scripts/verify_phase19_reporting.py
+python scripts/verify_phase20_production_readiness.py
 
 # 4. Run frontend TypeScript typecheck and production build
 npm --prefix frontend run typecheck
@@ -228,9 +240,11 @@ npm --prefix frontend run build
 1. **Epistemic Truth Separation:** The platform strictly differentiates empirical video data (`OBSERVED`), deductive rules (`INFERRED`), predictive ML models (`PREDICTED`), mathematical simulations (`SIMULATED`), operational guidance (`RECOMMENDED/ADVISORY`), and missing data (`UNAVAILABLE`).
 2. **Forecasting Observation Threshold:** The short-horizon forecasting engine requires $\ge 20$ chronological traffic observations ($N \ge 20$). If real-world observations are below this threshold ($N < 20$), predictions are honestly presented as `UNAVAILABLE` without synthetic data substitution.
 3. **Simulation-Only Decision Support:** All signal timing and emergency green-wave simulations are mathematical approximations (Webster formula, HCM LOS, progression queues) and do not actuate real-world traffic controllers.
-4. **Read-Only Dashboard Guarantee:** Dashboard queries (`GET /api/v1/dashboard/summary`) are strictly read-only and never trigger background inference, model retraining, or database mutations.
-5. **Single-Node Architecture:** Designed for single-node deployment with bounded concurrency (`MAX_CONCURRENT_ANALYSIS_JOBS=2`) and CPU inference; not designed as a distributed cluster.
-6. **No Production RBAC / Auth:** User authentication and role-based access control are out of scope for this release; the platform is designed for trusted operator environments.
+4. **Camera URI Credential Redaction:** Connection URIs with embedded credentials (e.g. `rtsp://user:pass@host/`) are automatically masked with `***` across database serialization, API envelopes, and logging.
+5. **Real Camera Hardware Verification:** Declared `REAL CAMERA VERIFICATION: ENVIRONMENT-LIMITED` because physical RTSP traffic cameras and USB video hardware are absent in CI/container environments; the live monitoring architecture is fully verified (`LIVE MONITORING ARCHITECTURE: VERIFIED`) via deterministic test fixture adapters.
+6. **Read-Only Dashboard Guarantee:** Dashboard queries (`GET /api/v1/dashboard/summary`) are strictly read-only and never trigger background inference, model retraining, or database mutations.
+7. **Single-Node Architecture:** Designed for single-node deployment with bounded concurrency (`MAX_CONCURRENT_ANALYSIS_JOBS=2`, `MAX_LIVE_STREAMS=2`) and CPU inference; not designed as a distributed cluster.
+8. **No Production RBAC / Auth:** User authentication and role-based access control are out of scope for this release; the platform is designed for trusted operator environments.
 
 ---
 

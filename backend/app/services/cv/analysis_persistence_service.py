@@ -453,6 +453,8 @@ class AnalysisPersistenceService:
         return AnalysisSessionDetailResponse(
             id=session.id,
             video_id=session.video_id,
+            camera_source_id=session.camera_source_id,
+            session_mode=session.session_mode or "FILE_ANALYSIS",
             video_filename=video_filename,
             analysis_type=session.analysis_type,
             status=session.status,
@@ -476,6 +478,8 @@ class AnalysisPersistenceService:
         return AnalysisSessionSummarySchema(
             id=session.id,
             video_id=session.video_id,
+            camera_source_id=session.camera_source_id,
+            session_mode=session.session_mode or "FILE_ANALYSIS",
             video_filename=video_filename,
             analysis_type=session.analysis_type,
             status=session.status,

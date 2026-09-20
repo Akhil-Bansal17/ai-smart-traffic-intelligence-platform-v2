@@ -20,6 +20,7 @@ import {
   BarChart3,
   Check,
   Copy,
+  Radio,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -170,7 +171,8 @@ export function HistoryPage() {
     const matchesSearch =
       (s.video_filename && s.video_filename.toLowerCase().includes(searchTerm.toLowerCase())) ||
       s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.video_id.toLowerCase().includes(searchTerm.toLowerCase());
+      (s.video_id && s.video_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (s.camera_source_id && s.camera_source_id.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || s.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesType = typeFilter === 'all' || s.analysis_type.toLowerCase() === typeFilter.toLowerCase();
     return matchesSearch && matchesStatus && matchesType;
@@ -619,10 +621,25 @@ export function HistoryPage() {
                     <td className="px-4 py-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <FileVideo className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                          {session.session_mode === 'LIVE_OBSERVATION' || session.session_mode === 'TEST_FIXTURE' ? (
+                            <Radio className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                          ) : (
+                            <FileVideo className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                          )}
                           <span className="font-medium text-slate-200 truncate max-w-[180px]">
-                            {session.video_filename || 'Video ' + session.video_id.substring(0, 8)}
+                            {session.video_filename ||
+                              (session.camera_source_id
+                                ? `Camera ${session.camera_source_id.substring(0, 8)}`
+                                : session.video_id
+                                ? `Video ${session.video_id.substring(0, 8)}`
+                                : 'Live Stream Session')}
                           </span>
+                          {session.session_mode === 'LIVE_OBSERVATION' && (
+                            <Badge variant="info" size="sm" className="text-[9px] px-1 py-0">LIVE</Badge>
+                          )}
+                          {session.session_mode === 'TEST_FIXTURE' && (
+                            <Badge variant="warning" size="sm" className="text-[9px] px-1 py-0">FIXTURE</Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
                           <span>{session.id.substring(0, 8)}...</span>

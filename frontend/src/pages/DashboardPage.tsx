@@ -131,6 +131,14 @@ export function DashboardPage() {
           </Button>
 
           <Link
+            to="/live-monitoring"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 transition-colors"
+          >
+            <Radio className="h-3.5 w-3.5 text-rose-400 animate-pulse" />
+            <span>Live Streams</span>
+          </Link>
+
+          <Link
             to="/system-info"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
           >
@@ -199,13 +207,21 @@ export function DashboardPage() {
           <span>Platform Subsystem Quick Jump</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
           <Link
             to="/video-analysis"
             className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 transition-all text-center group"
           >
             <Video className="h-4 w-4 text-cyan-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-medium text-slate-200 group-hover:text-cyan-300">CV Pipeline</div>
+          </Link>
+
+          <Link
+            to="/live-monitoring"
+            className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-rose-500/50 hover:bg-slate-900 transition-all text-center group"
+          >
+            <Radio className="h-4 w-4 text-rose-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+            <div className="text-xs font-medium text-slate-200 group-hover:text-rose-300">Live Feeds</div>
           </Link>
 
           <Link
@@ -250,7 +266,7 @@ export function DashboardPage() {
 
           <Link
             to={selectedSessionId || data.traffic_overview.active_session_id ? `/reports?sessionId=${selectedSessionId || data.traffic_overview.active_session_id}` : '/reports'}
-            className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 transition-all text-center group col-span-2 sm:col-span-3 lg:col-span-6 flex items-center justify-center gap-2"
+            className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 transition-all text-center group col-span-2 sm:col-span-3 lg:col-span-7 flex items-center justify-center gap-2"
           >
             <FileText className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-semibold text-cyan-300">Generate Structured PDF / CSV Report for Current Session &rarr;</div>

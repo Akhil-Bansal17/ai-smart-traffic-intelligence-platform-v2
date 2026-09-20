@@ -39,10 +39,22 @@ class AnalysisSession(Base):
         default=lambda: str(uuid.uuid4()),
         index=True,
     )
-    video_id: Mapped[str] = mapped_column(
+    video_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("videos.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    camera_source_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("camera_sources.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    session_mode: Mapped[str] = mapped_column(
+        String(32),
         nullable=False,
+        default="file_analysis",
         index=True,
     )
     analysis_type: Mapped[str] = mapped_column(
@@ -97,6 +109,7 @@ class AnalysisSession(Base):
 
     # Relationships
     video = relationship("Video", backref="analysis_sessions")
+    camera_source = relationship("CameraSource", back_populates="analysis_sessions")
     traffic_metrics = relationship(
         "TrafficMetricsRecord",
         back_populates="analysis_session",
@@ -125,7 +138,7 @@ class AnalysisSession(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<AnalysisSession(id={self.id}, video_id={self.video_id}, type={self.analysis_type}, status={self.status})>"
+        return f"<AnalysisSession(id={self.id}, mode={self.session_mode}, video_id={self.video_id}, camera_source_id={self.camera_source_id}, status={self.status})>"
 
 
 class TrafficMetricsRecord(Base):

@@ -10,6 +10,7 @@ from app.api.v1 import (
     analysis,
     analytics,
     anomalies,
+    camera_sources,
     counting,
     dashboard,
     detection,
@@ -27,6 +28,7 @@ from app.api.v1 import (
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
 api_router.include_router(videos.router, prefix="/videos", tags=["videos"])
+api_router.include_router(camera_sources.router, prefix="/camera-sources", tags=["camera-sources"])
 api_router.include_router(detection.router, prefix="/detection", tags=["detection"])
 api_router.include_router(tracking.router, prefix="/tracking", tags=["tracking"])
 api_router.include_router(counting.router, prefix="/counting", tags=["counting"])

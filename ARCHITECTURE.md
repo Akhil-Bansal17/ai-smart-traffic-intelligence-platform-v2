@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 ## AI Smart Traffic Intelligence Platform
 
-Status: **Phases 1–20 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+Status: **Phases 1–21 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
 
 > **Decision Support Disclaimer:** *This system provides traffic signal optimization and emergency corridor simulation for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
 
@@ -477,6 +477,75 @@ The platform is packaged for single-node deployment via Docker and Docker Compos
    - Container health check via `wget http://localhost:80/`.
 
 ### Continuous Integration (`.github/workflows/ci.yml`):
-- GitHub Actions automated matrix verifying backend pytest suite (212 unit/integration tests) on Python 3.11 and frontend TypeScript typecheck / Vite production build on Node 20.
+- GitHub Actions automated matrix verifying backend pytest suite (220 unit/integration tests) on Python 3.11 and frontend TypeScript typecheck / Vite production build on Node 20.
+
+## 13. Live Traffic Monitoring & Camera Source Management (Phase 21)
+
+The Live Traffic Monitoring subsystem evolves the platform from offline, file-based video batch processing into continuous, real-time edge traffic analysis, reusing the existing detection, tracking, counting, and analytics pipelines without code or inference duplication.
+
+```
+                    ┌───────────────────────────────┐
+                    │ Camera Source                 │
+                    │ (RTSP / HTTP / USB / Fixture) │
+                    └───────────────┬───────────────┘
+                                    │ (Background thread)
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │ Bounded Queue (maxsize=2)     │
+                    │ Stale Frame Drop Policy       │
+                    └───────────────┬───────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │ LiveAnalysisService Worker    │
+                    │ Thread (1 per active camera)  │
+                    └───────┬───────────────┬───────┘
+                            │               │
+                            ▼               ▼
+     ┌────────────────────────────┐   ┌────────────────────────────┐
+     │ Direct CV Pipeline         │   │ Atomic Preview Buffer      │
+     │ - YOLOVehicleDetector      │   │ Single-frame JPEG snapshot │
+     │ - ByteTrackVehicleTracker  │   │ in memory (no disk I/O)    │
+     │ - LineCrossingCounter      │   │ Endpoint: /preview.jpg     │
+     │ - LaneAssignmentEngine     │   └────────────────────────────┘
+     │ - TrafficMetricsEngine     │
+     └──────────────┬─────────────┘
+                    │
+                    ├───────────────────────────────┐
+                    │                               │
+                    ▼                               ▼
+     ┌────────────────────────────┐   ┌────────────────────────────┐
+     │ LiveMetricsSnapshot (Lock) │   │ On Stream Stop:            │
+     │ Total vol, active tracks,  │   │ Persist AnalysisSession    │
+     │ fps, breakdown, density    │   │ (session_mode="LIVE_...")  │
+     │ Endpoint: /live-status     │   │ Trigger anomaly detection  │
+     │ (Short-polling 1-1.5s)     │   │ Link to decision insights  │
+     └────────────────────────────┘   └────────────────────────────┘
+```
+
+### Core Architectural Invariants:
+1. **Zero Pipeline Duplication**: Live streams pass through identical CV stages (`detector.py`, `tracker.py`, `vehicle_counter.py`, `lane_analyzer.py`, `traffic_metrics_engine.py`). No separate "live models" or secondary heuristics are introduced.
+2. **Bounded Queue & Frame Dropping**: The ingestion adapter runs a non-blocking background frame grabber pumping into a bounded `queue.Queue(maxsize=2)`. When CV inference latency exceeds frame inter-arrival time, older frames are systematically dropped with `frames_dropped` metrics recorded. This prevents queue bloat, memory exhaustion, and pipeline drift.
+3. **Zero Broker Telemetry**: Avoids the operational overhead of WebSockets, Server-Sent Events, or Redis pub/sub. The frontend queries live telemetry via short HTTP polling (1–1.5s interval) against `GET /api/v1/camera-sources/{id}/live-status` and retrieves visual confirmation via `GET /api/v1/camera-sources/{id}/preview.jpg`.
+4. **In-Memory Preview Buffer**: The live analysis worker continuously renders tripwire crossings, bounding boxes, track IDs, and lane polygons onto the processed frame, compresses it to JPEG, and updates an in-memory byte buffer guarded by a threading lock. Responses to `/preview.jpg` are served instantaneously with zero disk writes.
+5. **Credential Masking**: All connection URIs (e.g. `rtsp://admin:secret@192.168.1.100:554/stream`) are sanitized using regex redaction (`***`) during Pydantic schema serialization, database logging, and error envelopes. Raw credentials are never transmitted over API responses or persisted in plaintext logs.
+6. **Strict Epistemic Provenance**:
+   - `LIVE_OBSERVATION`: Genuinely acquired telemetry from real physical RTSP, HTTP, or USB video hardware.
+   - `TEST_FIXTURE`: Telemetry generated by the deterministic synthetic fixture adapter.
+   - `FILE_ANALYSIS`: Telemetry generated from uploaded recorded video files.
+   - Test fixtures are explicitly flagged `is_synthetic = True`, ensuring complete transparency and zero fabrication.
+7. **Session Finalization & Downstream Linkage**: When an operator stops a live stream, the worker thread automatically compiles the accumulated counts, time-series buckets, and lane metrics into a standard `AnalysisSession` record, immediately triggers anomaly detection, and makes the session accessible to decision intelligence, forecasting, and reporting modules.
+8. **Concurrency Bounds & Conflict Rejection**: Live streams are limited by `settings.max_live_streams` (default 2). Attempting to launch a duplicate job for an already active camera source is rejected with HTTP 409 Conflict; exceeding concurrent stream capacity is rejected with HTTP 429 Too Many Requests.
+9. **Verification Classification**:
+   - `REAL CAMERA VERIFICATION: ENVIRONMENT-LIMITED`: The CI and development container sandboxes lack physical camera hardware or accessible RTSP camera feeds.
+   - `LIVE MONITORING ARCHITECTURE: VERIFIED`: All adapter abstractions, bounded queues, worker threads, HTTP telemetry, single-frame preview delivery, credential redaction, and database persistence are fully verified via automated tests.
+
+### Subsystem Components (`backend/app/services/cv/`):
+- `camera_source_adapter.py`: Abstract `BaseCameraSource`, `OpenCVCameraSource` with bounded thread queue, and `TestFixtureSourceAdapter`.
+- `test_fixture_source.py`: Deterministic `TestFixtureCameraSource` synthesizing frames with moving vehicles for automated regression testing.
+- `live_analysis_service.py`: `LiveAnalysisService` running the background processing loop, managing frame sampling, drawing debug overlays, maintaining thread-safe `LiveMetricsSnapshot`, and persisting finalized `AnalysisSession` upon stop.
+- `job_manager.py`: `AnalysisJobManager` extended with `submit_live_job()`, `stop_live_job()`, `get_live_status()`, `get_preview_jpeg()`, and active stream tracking.
+- `schemas/camera_source.py`: Pydantic schemas (`CameraSourceCreate`, `CameraSourceResponse`, `LiveMetricsSnapshot`, `LiveMonitoringStatusResponse`) with credential sanitization.
+- `api/v1/camera_sources.py`: REST router mounted at `/api/v1/camera-sources`.
 
 

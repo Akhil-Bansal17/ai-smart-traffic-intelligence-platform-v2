@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/layouts/Layout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { VideoAnalysisPage } from '@/pages/VideoAnalysisPage';
+import { LiveMonitoringPage } from '@/pages/LiveMonitoringPage';
 import { TrafficAnalyticsPage } from '@/pages/TrafficAnalyticsPage';
 import { PredictionsPage } from '@/pages/PredictionsPage';
 import { SignalOptimizationPage } from '@/pages/SignalOptimizationPage';
@@ -18,6 +19,7 @@ export function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<DashboardPage />} />
           <Route path="video-analysis" element={<VideoAnalysisPage />} />
+          <Route path="live-monitoring" element={<LiveMonitoringPage />} />
           <Route path="traffic-analytics" element={<TrafficAnalyticsPage />} />
           <Route path="predictions" element={<PredictionsPage />} />
           <Route path="signal-optimization" element={<SignalOptimizationPage />} />

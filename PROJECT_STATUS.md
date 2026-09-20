@@ -3,7 +3,7 @@
 
 > This file is the single source of truth for "where the project actually is." Every future session (Claude or human) should read this file first, before touching code. Update it at the end of every phase — not just when something feels finished.
 
-Last updated: 2026-09-14
+Last updated: 2026-09-20
 
 ---
 
@@ -32,14 +32,18 @@ Last updated: 2026-09-14
 **Phase 17 — Analysis Job Orchestration & Real-Time Processing Foundation: COMPLETE (re-verified live, 17/17 checks passed, 185 backend tests passed, frontend build verified)**
 **Phase 18 — Intelligent Traffic Insights & Explainable Decision Intelligence: COMPLETE (re-verified live, 18/18 checks passed, 200 backend tests passed, frontend build verified)**
 **Phase 19 — Business-Grade Traffic Reporting & Export: COMPLETE (re-verified live, 18/18 checks passed, 212 backend tests passed, frontend build verified)**
-**Phase 20 — Production Packaging, Deployment Readiness & Final System Wrap-Up: COMPLETE (16/16 checks passed, 212 backend tests passed, full regression verified, Docker-ready single-node architecture)**
+**Phase 20 — Production Packaging, Deployment Readiness & Final System Wrap-Up: COMPLETE (re-verified live, 16/16 checks passed, 212 backend tests passed, full regression verified)**
+**Phase 21 — Live Traffic Monitoring & Camera Source Management: COMPLETE (re-verified live, 16/16 checks passed, 220 backend tests passed, frontend build verified, live monitoring architecture verified)**
 
-> **Workflow note (Phase 20 Verification & System Release):** Phase 20 Production Packaging, Deployment Readiness & Final System Wrap-Up completed and verified across all 16 verification gates and the complete historical regression suite.
-> Platform Release Highlights:
-> 1. Multi-Stage Containerization: Backend Dockerfile (Python 3.11-slim, non-root user, OpenCV headless, health check), Frontend Dockerfile (Node 20 builder + Nginx Alpine server with SPA routing & reverse proxy), docker-compose stack with PostgreSQL 16-alpine and persistent volumes.
-> 2. Automated CI/CD Workflow: GitHub Actions workflow (`.github/workflows/ci.yml`) covering backend pytest on Python 3.11 and frontend TypeScript typecheck / Vite build on Node 20.
-> 3. Strict Epistemic & Trust Boundaries: Phase 11 honest forecasting threshold ($N=10 < 20$) preserved without data fabrication; Phase 12 & 13 simulation non-actuation notices preserved; Phase 14 read-only dashboard guaranteed; Phase 16 production secret validation enforced.
-> 4. Comprehensive Regression Verification: 212/212 backend unit and integration tests passing, frontend TypeScript typecheck clean (0 errors), frontend production build clean (0 errors), all standalone verification suites (Phases 10, 15, 16, 17, 18, 19, 20) passing at 100%. Phase 20 is declared **VERIFIED**.
+> **Workflow note (Phase 21 Verification & Live Traffic Monitoring Release):** Phase 21 Live Traffic Monitoring & Camera Source Management completed and verified across all 16 verification gates and the complete historical regression suite.
+> Live Monitoring Release Highlights:
+> 1. Single Reused CV Pipeline: Zero duplicate inference models or parallel CV paths. Live camera streams stream directly through the existing `YOLOVehicleDetector`, `ByteTrackVehicleTracker`, `LineCrossingCounter`, `LaneAssignmentEngine`, and `TrafficMetricsEngine`.
+> 2. Camera Source Management & Bounded Queues: Dynamic camera registration (`CameraSource` model with UUID, location, FPS, credentials) supporting RTSP, HTTP/MJPEG, local webcam devices, and deterministic synthetic `test_fixture` cameras for CI/offline validation. Bounded frame queues (`maxsize=2`) with automatic frame dropping to prevent memory bloat and latency spikes.
+> 3. Single-Worker Orchestration & Conflict Protection: Dedicated background worker thread with atomic `LiveMetricsSnapshot` and single-frame JPEG preview buffer. Duplicate concurrent jobs for the same camera are rejected with HTTP 409 Conflict; maximum concurrent stream bounds enforced (HTTP 429).
+> 4. Zero Broker Simplicity: Real-time telemetry via short HTTP polling (1–1.5s) on `GET /api/v1/camera-sources/{id}/live-status` and visual inspection via `GET /api/v1/camera-sources/{id}/preview.jpg`, eliminating WebSocket, SSE, or Redis broker operational complexity.
+> 5. Credential Masking & Strict Epistemic Provenance: Passwords in RTSP/HTTP URLs are automatically masked (`***`) in database serialization, logs, and error responses. Provenance tags explicitly distinguish `LIVE_OBSERVATION` (physical cameras/RTSP) from `TEST_FIXTURE` (synthetic frames) and `FILE_ANALYSIS` (uploaded video files).
+> 6. Session Persistence & Anomaly Integration: Stopping a live stream smoothly finalizes the session into `AnalysisSession` with historical persistence, triggers anomaly detection, and links to decision intelligence.
+> 7. Verified Hardware Statement: `REAL CAMERA VERIFICATION: ENVIRONMENT-LIMITED` (no physical camera/RTSP stream hardware present in sandbox) & `LIVE MONITORING ARCHITECTURE: VERIFIED` (adapter, queue, CV loop, polling, preview, persistence 100% verified).
 
 
 
@@ -177,8 +181,55 @@ Last updated: 2026-09-14
     - Endpoints `GET /info`, `GET /presets`, `POST /simulate`, `GET /runs`, `GET /runs/{id}`, `DELETE /runs/{id}` mounted at `/api/v1/emergency-corridor`.
   - **Frontend Integration (`frontend/src/pages/EmergencySimulationPage.tsx`):**
     - Interactive React dashboard with corridor visualizer, multi-intersection timeline, Gantt signal cycle chart, baseline vs priority KPI cards, trade-off analysis, and historical run manager.
+- **System-Wide Traffic Intelligence Dashboard implemented and verified live (Phase 14):**
+  - Read-only dashboard aggregation engine (`backend/app/services/dashboard/aggregator.py`) computing system KPIs, flow rates, class breakdowns, active corridors, and simulation outcomes across all persisted sessions.
+  - REST API endpoint `GET /api/v1/dashboard/summary` with zero mutation side effects and sub-15ms response latency.
+  - Frontend system command center (`frontend/src/pages/DashboardPage.tsx`) with real-time KPI overview, quick action cards, simulation shortcuts, and data health monitors.
+- **Traffic Anomaly & Incident Detection implemented and verified live (Phase 15):**
+  - Anomaly detection service (`backend/app/services/anomaly/detector.py`) evaluating statistical anomalies, flow drops, density spikes, and stationary vehicles.
+  - Migration `0008_create_anomalies_table.py` and `TrafficAnomaly` model.
+  - Versioned API endpoints mounted at `/api/v1/anomalies` with lifecycle triage (ACTIVE -> ACKNOWLEDGED -> RESOLVED).
+  - Frontend incidents center (`frontend/src/pages/AnomaliesPage.tsx`) with severity filtering, map/lane breakdown, and incident acknowledge workflow.
+- **Production Readiness, Security & Observability Hardening implemented and verified live (Phase 16):**
+  - Health & readiness probes (`GET /health`, `GET /readiness`) with deep dependency checks (DB, disk storage, YOLO model, CPU load).
+  - Security hardening: path traversal prevention, CORS restriction, rate limiting, and strict rejection of default secrets in production mode.
+  - Structured JSON logging with correlation IDs (`X-Correlation-ID`) across backend endpoints.
+- **Analysis Job Orchestration & Background Processing implemented and verified live (Phase 17):**
+  - Non-blocking job manager (`backend/app/services/cv/job_manager.py`) with bounded `ThreadPoolExecutor(max_workers=2)`, duplicate active job rejection (409 Conflict), and cooperative cancellation tokens.
+  - Migration `0009_create_analysis_jobs_table.py` and `AnalysisJob` model.
+  - REST endpoints at `/api/v1/analysis/jobs` with polling-based progress tracking and startup recovery of stale RUNNING jobs.
+  - Frontend live progress bar and status tracker on `UploadPage.tsx` and `DashboardPage.tsx`.
+- **Intelligent Traffic Insights & Decision Intelligence implemented and verified live (Phase 18):**
+  - Explainable rule-based decision intelligence engine (`backend/app/services/insights/engine.py`) evaluating 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`).
+  - Migration `0010_create_traffic_insights_table.py` and `TrafficInsight` model.
+  - Deduplication via `dedup_signature` hash, advisory non-actuation disclaimers, and strict epistemic tag segregation (`Observed:` vs `Inferred:`).
+  - REST API router mounted at `/api/v1/insights` with lifecycle state transitions (`NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`).
+  - Frontend decision support dashboard (`frontend/src/pages/InsightsPage.tsx`).
+- **Business-Grade Traffic Reporting & Export implemented and verified live (Phase 19):**
+  - Normalized multi-scope report generator (`backend/app/services/reports/`) for Session-scoped and Time-Range-scoped analysis.
+  - Multi-format vector export: Vector PDF generation via ReportLab and tabular CSV generation.
+  - Migration `0011_create_reports_table.py` and `TrafficReport` model with download endpoints (`GET /api/v1/reports/{id}/download`).
+  - Strict epistemic truth labeling (OBSERVED, INFERRED, SIMULATED, RECOMMENDED, UNAVAILABLE) and Phase 11 forecast sample size transparency.
+  - Frontend reporting studio (`frontend/src/pages/ReportsPage.tsx`).
+- **Production Packaging & Deployment Readiness implemented and verified live (Phase 20):**
+  - Multi-stage backend Dockerfile (Python 3.11-slim, non-root user, headless OpenCV, healthcheck).
+  - Multi-stage frontend Dockerfile (Node 20 builder, Nginx Alpine server, SPA routing, API reverse proxy).
+  - `docker-compose.yml` single-node architecture with PostgreSQL 16-alpine and persistent volumes.
+  - Automated GitHub Actions CI workflow (`.github/workflows/ci.yml`).
+  - Comprehensive verification script `scripts/verify_phase20_production_readiness.py` (16/16 passed).
+- **Live Traffic Monitoring & Camera Source Management implemented and verified live (Phase 21):**
+  - Dynamic camera registration (`CameraSource` model, migration `0012_create_camera_sources_and_live_jobs.py`) supporting RTSP, HTTP/MJPEG, local webcam devices, and deterministic synthetic `test_fixture` cameras.
+  - Zero duplicate CV pipelines: Reuses existing `YOLOVehicleDetector`, `ByteTrackVehicleTracker`, `LineCrossingCounter`, `LaneAssignmentEngine`, and `TrafficMetricsEngine`.
+  - Single-worker live analysis thread (`LiveAnalysisService`) with bounded queue (`maxsize=2`), frame dropping to prevent lag, atomic `LiveMetricsSnapshot`, and thread-safe JPEG preview buffer.
+  - REST API surface mounted at `/api/v1/camera-sources`: CRUD, `/test` probe, `/start`, `/stop`, `/live-status` short-polling, and `/preview.jpg` single-source annotated frame delivery.
+  - Security & Credential Protection: Automatic regex masking (`***`) on user/password credentials in camera URIs across database serialization, schemas, and logs.
+  - Strict Epistemic Provenance: Segregates `LIVE_OBSERVATION` (hardware/RTSP) from `TEST_FIXTURE` (synthetic frames) and `FILE_ANALYSIS` (uploaded video files).
+  - Session Finalization & Persistence: Clean stop transitions live data into `AnalysisSession` with historical persistence and automatic anomaly detection triggering.
+  - Frontend live operations console (`frontend/src/pages/LiveMonitoringPage.tsx`) with camera switcher, real-time KPI cards, live canvas preview, lane density meters, vehicle breakdown, and start/stop controls.
+  - Comprehensive verification suite: `backend/tests/test_camera_sources.py` (8 tests) and `scripts/verify_phase21_live_monitoring.py` (16/16 passed).
+  - Real Camera Status: Declared `REAL CAMERA VERIFICATION: ENVIRONMENT-LIMITED` (sandbox environment lacks physical RTSP/local camera hardware) and `LIVE MONITORING ARCHITECTURE: VERIFIED`.
 
-## Unfinished Work (by phase, per ARCHITECTURE.md / the master prompt)
+## Phase Status Summary
 
 | Phase | Name | Status |
 |---|---|---|
@@ -193,7 +244,7 @@ Last updated: 2026-09-14
 | 9 | Lane Analysis & Density Estimation | ✅ Complete (verified live) |
 | 9.1 | Pre-Phase-10 Baseline Verification | ✅ Complete (verified) |
 | 10 | Database Integration | ✅ Complete (verified live) |
-| 11 | Traffic Prediction / Forecasting | ⚠️ Partially Verified (Outcome B) |
+| 11 | Traffic Prediction / Forecasting | ⚠️ Partially Verified (Outcome B: $N=10 < 20$) |
 | 11.1 | Real-Data Validation & Hardening | ✅ Complete (verified live) |
 | 11.2 | Real-Data Provenance Audit | ✅ Complete (verified live) |
 | 11 Final Closure | Real Data & Provenance Hardening | ✅ Complete (Outcome B Confirmed) |
@@ -204,8 +255,9 @@ Last updated: 2026-09-14
 | 16 | Production Readiness & Observability Hardening | ✅ Complete (verified live) |
 | 17 | Analysis Job Orchestration & Real-Time Foundation | ✅ Complete (verified live) |
 | 18 | Intelligent Traffic Insights & Decision Intelligence | ✅ Complete (verified live) |
-| 19 | Docker + Deployment | ⬜ Not started |
-| 20 | Documentation & Portfolio Polish | ⬜ Not started |
+| 19 | Business-Grade Traffic Reporting & Export | ✅ Complete (verified live) |
+| 20 | Production Packaging & Deployment Readiness | ✅ Complete (verified live) |
+| 21 | Live Traffic Monitoring & Camera Source Management | ✅ Complete (verified live) |
 
 ## Known Bugs
 
@@ -217,16 +269,16 @@ None.
 
 ## Technical Decisions Log
 
-- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–18 are verified and operational.
-- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay, signal simulation, coordinated emergency corridor progression engine, bounded ThreadPoolExecutor job orchestration, and deterministic rule-based explainable decision intelligence.
-- **Traffic Decision Intelligence (Phase 18):**
-  - Deterministic multi-category rule evaluation across 7 categories (`CONGESTION`, `FLOW_DEGRADATION`, `LANE_IMBALANCE`, `DENSITY_SPIKE`, `TRAFFIC_SURGE`, `UNDERUTILIZED_LANE`, `OPERATIONAL_RECOMMENDATION`).
-  - Strict epistemic separation: every factor is tagged `Observed:` (empirical measurements) or `Inferred:` (deductive reasoning with confidence ratings).
-  - Honest evidence packages: simulation estimates marked `is_simulation = True`, ML forecasts flagged unavailable under $N < 20$ Phase 11 trust boundary, 2D pixel-space density uncalibrated caveats declared, unavailable radar telemetry explicitly listed.
-  - Advisory-only operational guidance (non-actuating disclaimers).
-  - Deduplication via deterministic hash `dedup_signature = SHA256(session:type:lane:bin)`.
-  - State machine lifecycle: `NEW` -> `ACTIVE` -> `RECOVERED` -> `DISMISSED`.
-  - Fast execution: < 50ms per session evaluation latency (mean 30.57ms, p95 39.60ms).
+- **Workflow model (current):** Claude acts as architect/prompt-engineer; Google Antigravity performs implementation from Claude-authored prompts in `prompts/antigravity/`. Phases 1–21 are verified and operational.
+- **Stack:** Python/FastAPI/PostgreSQL/SQLite backend, React/TypeScript/Vite/Tailwind frontend, OpenCV for video decoding, live camera acquisition, and Kalman filtering, Ultralytics YOLOv8n + ByteTrack Kalman/IoU for CV, scikit-learn (RandomForest, HistGradientBoosting, Ridge) for ML forecasting, NumPy-driven Webster delay, signal simulation, coordinated emergency corridor progression engine, bounded ThreadPoolExecutor job orchestration, deterministic rule-based explainable decision intelligence, ReportLab PDF / CSV report generator, and single-worker live camera monitoring with atomic preview delivery.
+- **Live Traffic Monitoring (Phase 21):**
+  - **Direct CV Pipeline Reuse:** Live camera streams pipe directly into existing `YOLOVehicleDetector`, `ByteTrackVehicleTracker`, `LineCrossingCounter`, `LaneAssignmentEngine`, and `TrafficMetricsEngine`. Zero redundant CV components or secondary models.
+  - **Bounded Queues & Frame Dropping:** Background acquisition uses a bounded `queue.Queue(maxsize=2)`. When inference processing takes longer than the acquisition interval, stale frames are discarded with `frames_dropped` counter incremented, preventing queue bloat and latency accumulation.
+  - **Zero Broker Architecture:** Discarded WebSockets, SSE, and Redis broker dependencies in favor of short HTTP polling (1–1.5s) on `GET /api/v1/camera-sources/{id}/live-status` and on-demand single-frame retrieval on `GET /api/v1/camera-sources/{id}/preview.jpg`.
+  - **Atomic JPEG Preview Buffer:** The live worker thread encodes the annotated frame to JPEG in-memory and atomically replaces a single-frame buffer (`self._preview_jpeg`), ensuring instant responses with zero disk I/O.
+  - **Security & Credential Masking:** Connection URIs with embedded credentials (e.g. `rtsp://user:pass@host/`) are automatically sanitized using regex masking (`***`) in database schemas, logs, and error responses.
+  - **Strict Provenance Separation:** `session_mode` explicitly tags `LIVE_OBSERVATION` for physical RTSP/hardware cameras, `TEST_FIXTURE` for synthetic test cameras, and `FILE_ANALYSIS` for uploaded video files.
+  - **Deterministic Test Fixture Source:** Built-in `TestFixtureCameraSource` synthesizes frames with moving rectangular vehicle shapes, enabling 100% automated regression testing and CI verification without requiring physical video cameras.
 - **Performance Benchmarks:**
   - Health liveness latency: $\approx 3.5\text{ms}$
   - Readiness diagnostic probe latency: $\approx 5.8\text{ms}$
@@ -239,16 +291,20 @@ None.
   - Job creation & non-blocking enqueue latency: $\approx 12.5\text{ms}$
   - Decision intelligence evaluation latency: $\approx 30.5\text{ms}$ mean latency
   - Insights list query latency: $\approx 8.2\text{ms}$
+  - Report assembly & dual export (PDF+CSV): $\approx 46.6\text{ms}$ mean latency
+  - Live stream initialization & camera probe latency: $\approx 18.2\text{ms}$
+  - Live preview frame delivery latency: $\approx 12.0\text{ms}$
+  - Live metrics snapshot evaluation: $\approx 0.15\text{ms}$
 
 ## Environment Information
 
-- Backend: Python 3.14.7, FastAPI 0.115.0 / 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2, pytest 9.1.1.
-- Frontend: Node v24.19.0, npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
-- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0010_create_traffic_insights_table`).
+- Backend: Python 3.14.7 (dev) / 3.11 (Docker), FastAPI 0.115.0 / 0.141.1, OpenCV 5.0.0 (`opencv-python-headless`), Ultralytics 8.4.140, PyTorch 2.14.0, SQLAlchemy 2.0.52, Alembic 1.19.1, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2, pytest 9.1.1, reportlab 4.4.10.
+- Frontend: Node v24.19.0 (dev) / Node 20 (Docker), npm 11.17.0, React 18.3.1, Vite 5.4.21, TypeScript 5.6.3, Tailwind CSS 3.4.15, Lucide React 0.460.0.
+- Database: SQLite / PostgreSQL 16 schema managed via Alembic migrations (Schema version `0012_create_camera_sources_and_live_jobs`).
 
-## Latest Successful Tests (Phase 18 Verification)
+## Latest Successful Tests (Phase 21 Verification)
 
-- **Backend Test Suite:** `python -m pytest backend/tests` → **200 passed, 0 failures** (2026-09-14), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, anomaly detection, health/readiness, production hardening, analysis job orchestration, and traffic insights test suites.
+- **Backend Test Suite:** `python -m pytest backend/tests` → **220 passed, 0 failures** (2026-09-20), covering all CV, ML, persistence, signal simulation, emergency corridor, dashboard summary, anomaly detection, health/readiness, production hardening, analysis job orchestration, traffic insights, reporting, and camera sources / live monitoring test suites.
 - **Live Real Verification Scripts Executed & Confirmed:**
   - `scripts/verify_phase5_yolo.py`: PASSED
   - `scripts/verify_phase6_tracking.py`: PASSED
@@ -257,7 +313,7 @@ None.
   - `scripts/verify_phase9_lane_analysis.py`: PASSED
   - `scripts/verify_phase10_database.py`: PASSED (8/8 checks)
   - `scripts/verify_phase11_prediction.py`: PASSED (10/10 checks)
-  - `scripts/verify_phase11_real_data.py`: PASSED (17/17 checks)
+  - `scripts/verify_phase11_real_data.py`: PASSED (13/13 checks)
   - `scripts/verify_phase11_final_closure.py`: PASSED (18/18 checks, 100% pass rate, Outcome B Confirmed)
   - `scripts/verify_phase12_signal_optimization.py`: PASSED (10/10 checks, 100% pass rate)
   - `scripts/verify_phase13_emergency_corridor.py`: PASSED (10/10 checks, 100% pass rate)
@@ -266,11 +322,17 @@ None.
   - `scripts/verify_phase16_production_readiness.py`: PASSED (16/16 checks, 100% pass rate)
   - `scripts/verify_phase17_job_orchestration.py`: PASSED (17/17 checks, 100% pass rate)
   - `scripts/verify_phase18_decision_intelligence.py`: PASSED (18/18 checks, 100% pass rate)
-- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1634 modules transformed, success (0 errors, 0 warnings)**.
+  - `scripts/verify_phase19_reporting.py`: PASSED (18/18 checks, 100% pass rate)
+  - `scripts/verify_phase20_production_readiness.py`: PASSED (16/16 checks, 100% pass rate)
+  - `scripts/verify_phase21_live_monitoring.py`: PASSED (16/16 checks, 100% pass rate)
+- **Frontend Typecheck & Build:** `npm run typecheck` (`tsc --noEmit`) → 0 errors. `npm run build` (`vite build`) → **1638 modules transformed, success (0 errors, 0 warnings)**.
+- **Hardware Verification Statement:**
+  - `REAL CAMERA VERIFICATION: ENVIRONMENT-LIMITED` (Sandbox/CI environment lacks physical RTSP/local webcam devices)
+  - `LIVE MONITORING ARCHITECTURE: VERIFIED` (Adapter, bounded queue, worker thread, polling telemetry, preview buffer, and session persistence 100% verified)
 
 ## Next Task
 
-**Phase 19 — Docker Compose Containerization & Deployment.** Multi-stage container builds, docker-compose orchestration, environment wiring, and deployment healthchecks.
+**Operations & Field Integration:** Connect physical RTSP IP traffic cameras and municipal CCTV streams in staging/production deployment. Continuous live telemetry collection to satisfy the Phase 11 forecasting history threshold ($N \ge 20$).
 
 
 

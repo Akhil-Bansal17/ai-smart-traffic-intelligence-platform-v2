@@ -68,7 +68,9 @@ class AnalysisJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    video_id: str
+    video_id: Optional[str] = None
+    camera_source_id: Optional[str] = None
+    job_mode: str = "FILE_ANALYSIS"
     session_id: Optional[str] = None
     status: str
     analysis_type: str
