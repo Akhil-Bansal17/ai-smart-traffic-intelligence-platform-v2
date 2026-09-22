@@ -109,6 +109,32 @@ class Settings(BaseSettings):
     live_frame_timeout_seconds: float = 5.0
     live_metrics_interval_seconds: int = 10
 
+    # --- Historical Traffic Intelligence & Trend Analysis (Phase 22) ---
+    max_historical_range_days: int = 90
+    max_historical_buckets: int = 1000
+    max_historical_records: int = 10000
+
+    @field_validator("max_historical_range_days")
+    @classmethod
+    def validate_historical_range_days(cls, v: int) -> int:
+        if v < 1 or v > 365:
+            raise ValueError(f"max_historical_range_days must be between 1 and 365, got {v}")
+        return v
+
+    @field_validator("max_historical_buckets")
+    @classmethod
+    def validate_historical_buckets(cls, v: int) -> int:
+        if v < 10 or v > 5000:
+            raise ValueError(f"max_historical_buckets must be between 10 and 5000, got {v}")
+        return v
+
+    @field_validator("max_historical_records")
+    @classmethod
+    def validate_historical_records(cls, v: int) -> int:
+        if v < 100 or v > 50000:
+            raise ValueError(f"max_historical_records must be between 100 and 50000, got {v}")
+        return v
+
     @field_validator("max_report_time_range_days")
     @classmethod
     def validate_report_time_range(cls, v: int) -> int:

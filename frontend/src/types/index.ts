@@ -13,4 +13,5 @@ export * from './emergencyCorridor';
 export * from './anomaly';
 export * from './insight';
 export * from './report';
+export * from './historicalAnalytics';
 

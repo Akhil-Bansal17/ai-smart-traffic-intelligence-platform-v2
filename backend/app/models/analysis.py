@@ -200,6 +200,7 @@ class TrafficMetricsRecord(Base):
         DateTime(timezone=True),
         default=utcnow,
         nullable=False,
+        index=True,
     )
 
     # Relationships

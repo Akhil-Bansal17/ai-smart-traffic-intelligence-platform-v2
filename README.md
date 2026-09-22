@@ -49,6 +49,7 @@ The **AI Smart Traffic Intelligence Platform** is an end-to-end, edge-deployable
 - **Simulates Webster-optimal traffic signal timings** and quantifies expected delay reduction, throughput deltas, and HCM Level of Service improvements.
 - **Simulates arterial emergency green-waves** with dynamic queue clearance calculations while strictly locking clearance intervals ($g_{\text{min}} \ge 7.0\text{s}$, yellow $\ge 3.0\text{s}$, all-red $\ge 1.0\text{s}$).
 - **Enforces honest ML thresholding** by refusing to train or fabricate short-horizon forecasts when historical real-world sample counts are below verified statistical minimums ($N < 20$).
+- **Aggregates historical traffic intelligence and trends** over bounded temporal windows (up to 90 days) with discrete non-interpolated time-series bucketing, YOLO vehicle class distributions, directional flow balance ratios, lane density heuristics, and deterministic peak analysis with zero forward forecasting and strict provenance isolation.
 - **Generates vector PDF and CSV reports** with immutable UUIDs, SHA-256 verification hashes, and strict epistemic truth labels directly from persisted database records.
 - **Runs entirely on standard commodity CPU hardware** without requiring expensive GPU infrastructure.
 

@@ -12,6 +12,7 @@ import {
   X,
   Radio,
   FileText,
+  LineChart,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -28,6 +29,7 @@ const mainNavItems: NavItem[] = [
   { name: 'Video Analysis', path: '/video-analysis', icon: Video, phaseTag: 'Ph 4-8' },
   { name: 'Live Monitoring', path: '/live-monitoring', icon: Radio, phaseTag: 'Ph 21' },
   { name: 'Traffic Analytics', path: '/traffic-analytics', icon: BarChart3, phaseTag: 'Ph 9' },
+  { name: 'Historical Analytics', path: '/historical-analytics', icon: LineChart, phaseTag: 'Ph 22' },
   { name: 'Predictions', path: '/predictions', icon: TrendingUp, phaseTag: 'Ph 13' },
   { name: 'Signal Optimization', path: '/signal-optimization', icon: Sliders, phaseTag: 'Ph 14', isSimulation: true },
   { name: 'Emergency Simulation', path: '/emergency-simulation', icon: Siren, phaseTag: 'Ph 15', isSimulation: true },

@@ -28,6 +28,7 @@ import {
   History,
   Video,
   FileText,
+  BarChart3,
 } from 'lucide-react';
 
 import { Link } from 'react-router-dom';
@@ -129,6 +130,14 @@ export function DashboardPage() {
             <RotateCw className={`h-3.5 w-3.5 text-cyan-400 ${refreshing ? 'animate-spin' : ''}`} />
             <span>{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
           </Button>
+
+          <Link
+            to="/historical-analytics"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/60 transition-colors"
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Historical Analytics</span>
+          </Link>
 
           <Link
             to="/live-monitoring"

@@ -4,6 +4,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { VideoAnalysisPage } from '@/pages/VideoAnalysisPage';
 import { LiveMonitoringPage } from '@/pages/LiveMonitoringPage';
 import { TrafficAnalyticsPage } from '@/pages/TrafficAnalyticsPage';
+import { HistoricalAnalyticsPage } from '@/pages/HistoricalAnalyticsPage';
 import { PredictionsPage } from '@/pages/PredictionsPage';
 import { SignalOptimizationPage } from '@/pages/SignalOptimizationPage';
 import { EmergencySimulationPage } from '@/pages/EmergencySimulationPage';
@@ -21,6 +22,7 @@ export function App() {
           <Route path="video-analysis" element={<VideoAnalysisPage />} />
           <Route path="live-monitoring" element={<LiveMonitoringPage />} />
           <Route path="traffic-analytics" element={<TrafficAnalyticsPage />} />
+          <Route path="historical-analytics" element={<HistoricalAnalyticsPage />} />
           <Route path="predictions" element={<PredictionsPage />} />
           <Route path="signal-optimization" element={<SignalOptimizationPage />} />
           <Route path="emergency-simulation" element={<EmergencySimulationPage />} />

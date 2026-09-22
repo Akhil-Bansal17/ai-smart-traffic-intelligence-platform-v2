@@ -548,4 +548,48 @@ The Live Traffic Monitoring subsystem evolves the platform from offline, file-ba
 - `schemas/camera_source.py`: Pydantic schemas (`CameraSourceCreate`, `CameraSourceResponse`, `LiveMetricsSnapshot`, `LiveMonitoringStatusResponse`) with credential sanitization.
 - `api/v1/camera_sources.py`: REST router mounted at `/api/v1/camera-sources`.
 
+---
+
+## 9. Historical Traffic Intelligence & Trend Analysis Layer (Phase 22)
+
+The Historical Traffic Intelligence architecture provides a query-optimized aggregation engine over persisted video-analysis and live-monitoring records. It synthesizes observational data to answer "What actually happened?" without predictive extrapolation, synthetic disguise, or physical actuation.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    HISTORICAL TRAFFIC INTELLIGENCE ENGINE                   │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        ▼                             ▼                             ▼
+┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
+│  Bounded Filters │        │ Provenance Guard │        │ Indexed Queries  │
+│  max_range: 90d  │        │ REAL vs MIXED    │        │ 4 b-tree indexes │
+│  max_buckets: 1k │        │ synthetic flag   │        │ sub-100ms joins  │
+└────────┬─────────┘        └────────┬─────────┘        └────────┬─────────┘
+         │                           │                           │
+         └───────────────────────────┼───────────────────────────┘
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       8 ANALYTICAL SYNTHESIS MODULES                        │
+├──────────────────────┬──────────────────────┬───────────────────────────────┤
+│ 1. Unified Summary   │ 4. Directional Ratio │ 7. Anomaly Incident History   │
+│ 2. Discrete Buckets  │ 5. Lane Intelligence │ 8. Multi-Source Comparison    │
+│ 3. YOLO Classes (5)  │ 6. Deterministic Peak│ 9. Period Delta (% change)    │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      ▼
+                      REST API: /api/v1/historical-analytics/*
+                                      │
+                                      ▼
+                      Interactive React Dashboard (/historical-analytics)
+```
+
+### Core Architectural Invariants:
+1. **Strict Epistemic Isolation**: Real-world and test-fixture sessions are never conflated. Provenance flags (`REAL DATA`, `MIXED`, `SYNTHETIC / TEST FIXTURE`, `NO DATA`) accompany all payloads. Synthetic records are excluded by default (`include_synthetic=false`).
+2. **Discrete Non-Interpolation**: Bucketing preserves discrete observational boundaries. Gaps between sessions are reported honestly with 0 volume; no synthetic spline or flatline interpolation is performed.
+3. **Deterministic Peak Tie-Breaking**: Peak flow rates, volumes, and lane densities follow an immutable hierarchy: value > earlier `started_at` > longer observation duration > chronological start time.
+4. **Lane Calibration Disclaimers**: Image-space proxy densities are explicitly disclaimed as uncalibrated pixel-area heuristics requiring camera calibration matrices for physical surface density conversion.
+5. **Database Index Optimization**: Alembic migration `0013_add_historical_analytics_indexes` provisions `ix_traffic_metrics_created_at`, `ix_analysis_sessions_started_status`, `ix_analysis_sessions_camera_source_started`, and `ix_lane_results_session_lane`.
+6. **Preservation of System Boundaries**: Phase 11 forecasting limit ($N < 20$) is untouched; Phase 12-13 simulations remain strictly non-actuating; Phase 14 dashboard and Phase 22 analytics remain strictly read-only.
+
+
 
