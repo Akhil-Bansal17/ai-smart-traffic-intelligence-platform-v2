@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version: 2.1.0](https://img.shields.io/badge/version-2.1.0-emerald.svg)](PROJECT_STATUS.md)
-[![CI Status: 220 Passed](https://img.shields.io/badge/CI-220%20Tests%20Passing-brightgreen.svg)](.github/workflows/ci.yml)
+[![CI Status: 243 Passed](https://img.shields.io/badge/CI-243%20Tests%20Passing-brightgreen.svg)](.github/workflows/ci.yml)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React: 18.2](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://react.dev/)
@@ -32,11 +32,13 @@ The **AI Smart Traffic Intelligence Platform** is an end-to-end, edge-deployable
 | **Business-Grade Reporting** | Single-session and multi-day historical reporting generating downloadable printable vector PDFs via ReportLab (custom `NumberedCanvas` "Page X of Y") and clean RFC 4180 CSVs with zero metric recalculation. |
 | **Analysis Job Orchestration** | Non-blocking background worker pool (`ThreadPoolExecutor`), cooperative token cancellation across CV loops, honest frame progress tracking, idempotent deduplication, and crash recovery. |
 | **Production Packaging** | Multi-stage Docker containers for backend and frontend, Nginx reverse proxy with SPA routing, PostgreSQL 16 persistence, deep health probes (`/health`, `/readiness`), and automated GitHub Actions CI. |
+| **Unified Traffic Operations Center** | Integrated operational console (`/operations`) combining live camera feeds, 5-state health telemetry (`ONLINE`/`DEGRADED`/`OFFLINE`), active incident mitigation with operator audit notes, authoritative timeline, network traffic snapshot, and retrospective context drawer in a single coordinated sub-50ms query loop. |
 
 ---
 
 ## ⚡ What It Can Do Now
 
+- **Orchestrates unified real-time traffic operations** via the dedicated Operations Center (`/operations`), delivering a composite command console that coordinates live camera feeds, active incidents, operator status mutation (`acknowledged`/`resolved`), authoritative audit timeline, and retrospective historical context in a single 5s polling cycle with zero secondary analytics duplication.
 - **Processes video files asynchronously** without locking HTTP threads, reporting honest frame-by-frame progress percentages and processing FPS.
 - **Tracks individual vehicles across occlusions** using an 8-state Kalman filter and recovers lost IDs up to 15 frames after visual obstruction.
 - **Eliminates double-counting entirely** across virtual tripwire lines using 2D signed cross-product trajectory intersection tests combined with persistent track-ID sets.

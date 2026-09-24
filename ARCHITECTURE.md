@@ -591,5 +591,40 @@ The Historical Traffic Intelligence architecture provides a query-optimized aggr
 5. **Database Index Optimization**: Alembic migration `0013_add_historical_analytics_indexes` provisions `ix_traffic_metrics_created_at`, `ix_analysis_sessions_started_status`, `ix_analysis_sessions_camera_source_started`, and `ix_lane_results_session_lane`.
 6. **Preservation of System Boundaries**: Phase 11 forecasting limit ($N < 20$) is untouched; Phase 12-13 simulations remain strictly non-actuating; Phase 14 dashboard and Phase 22 analytics remain strictly read-only.
 
+---
+
+## 10. Unified Traffic Operations Center & Real-Time Incident Response (Phase 23)
+
+The Unified Traffic Operations Center provides a centralized, coordinated orchestration and presentation layer that integrates the platform's distributed analytical subsystems into one responsive, high-reliability command interface.
+
+```
+             Unified Traffic Operations Center (Phase 23)
+                                │
+      ┌─────────────────────────┼─────────────────────────┐
+      ▼                         ▼                         ▼
+Live Monitoring (21)    Incident System (15)    Historical Analytics (22)
+      │                         │                         │
+      └──────────────┬──────────┴──────────────┬──────────┘
+                     ▼                         ▼
+           Decision Insights (18)         Reporting (19)
+                     │
+                     ▼
+           Existing Simulations (12/13)
+```
+
+### Core Architecture & Invariants:
+1. **Delegation over Duplication**: `OperationsCenterService` strictly orchestrates existing authoritative services (`AnalysisJobManager`, `HistoricalAnalyticsService`, `AnomalyDetectionService`). It does not contain secondary CV pipelines, duplicate trackers, or parallel anomaly evaluation engines.
+2. **Single-Poll Coordinated Aggregation**: `GET /api/v1/operations/overview` executes a single bounded query set, assembling camera fleet status, active incidents, traffic volume snapshot, decision insights, event timeline, and provenance in < 50ms.
+3. **Camera Health State Machine**: Telemetry from live streams is continuously mapped to 5 discrete health states: `ONLINE` (active and receiving frames), `CONNECTING` (initializing stream), `DEGRADED` (dropped frames or high latency), `OFFLINE` (inactive source), and `UNKNOWN` (indeterminate telemetry).
+4. **Credential Redaction**: Connection URIs containing authentication tokens or passwords (`rtsp://user:pass@host/path`) are sanitized by `redact_uri_credentials` into `rtsp://user:***@host/path` before leaving the backend.
+5. **Operator Lifecycle & Audit Trail**: Active incidents support atomic operator transitions (`open` -> `acknowledged` -> `resolved`) with operator notes and timestamps persisted in `AnomalyEvent.details_json`.
+6. **Authoritative Event Timeline**: Chronologically assembles events from existing persisted records (`AnomalyEvent`, `AnalysisJob`, `TrafficInsight`, `Report`) with deterministic ordering and bounded limits (default 50).
+7. **Retrospective Context Drawer**: Pulls retrospective historical intelligence on demand from Phase 22 (`HistoricalAnalyticsService`) without triggering heavyweight scans during regular polling.
+8. **Preservation of System Boundaries**:
+   - **Phase 11 ML Forecasting**: Minimum training sample barrier ($N \ge 20$) remains enforced; prediction is reported `UNAVAILABLE` ($N=10 < 20$).
+   - **Phase 12/13 Simulations**: Signal Optimization and Emergency Corridor simulations remain decision-support only with explicit non-actuating disclaimers.
+   - **Data Provenance**: Responses distinguish `REAL DATA`, `TEST FIXTURE`, `MIXED`, and `UNAVAILABLE`. Test fixtures carry prominent warning banners.
+
+
 
 
