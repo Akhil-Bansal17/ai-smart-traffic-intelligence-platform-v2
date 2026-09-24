@@ -5,6 +5,7 @@ import { VideoAnalysisPage } from '@/pages/VideoAnalysisPage';
 import { LiveMonitoringPage } from '@/pages/LiveMonitoringPage';
 import { TrafficAnalyticsPage } from '@/pages/TrafficAnalyticsPage';
 import { HistoricalAnalyticsPage } from '@/pages/HistoricalAnalyticsPage';
+import { OperationsCenterPage } from '@/pages/OperationsCenterPage';
 import { PredictionsPage } from '@/pages/PredictionsPage';
 import { SignalOptimizationPage } from '@/pages/SignalOptimizationPage';
 import { EmergencySimulationPage } from '@/pages/EmergencySimulationPage';
@@ -19,6 +20,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="operations" element={<OperationsCenterPage />} />
           <Route path="video-analysis" element={<VideoAnalysisPage />} />
           <Route path="live-monitoring" element={<LiveMonitoringPage />} />
           <Route path="traffic-analytics" element={<TrafficAnalyticsPage />} />

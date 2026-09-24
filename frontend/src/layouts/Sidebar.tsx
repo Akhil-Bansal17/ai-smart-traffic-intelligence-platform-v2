@@ -13,6 +13,7 @@ import {
   Radio,
   FileText,
   LineChart,
+  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -26,6 +27,7 @@ export interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Operations Center', path: '/operations', icon: ShieldAlert, phaseTag: 'Ph 23' },
   { name: 'Video Analysis', path: '/video-analysis', icon: Video, phaseTag: 'Ph 4-8' },
   { name: 'Live Monitoring', path: '/live-monitoring', icon: Radio, phaseTag: 'Ph 21' },
   { name: 'Traffic Analytics', path: '/traffic-analytics', icon: BarChart3, phaseTag: 'Ph 9' },
