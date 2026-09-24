@@ -16,5 +16,6 @@ export * from './insights';
 export * from './reports';
 export * from './cameraSources';
 export * from './historicalAnalytics';
+export * from './operations';
 
 

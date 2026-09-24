@@ -14,4 +14,5 @@ export * from './anomaly';
 export * from './insight';
 export * from './report';
 export * from './historicalAnalytics';
+export * from './operations';
 
