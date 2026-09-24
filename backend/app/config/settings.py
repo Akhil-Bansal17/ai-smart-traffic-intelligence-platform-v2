@@ -114,6 +114,32 @@ class Settings(BaseSettings):
     max_historical_buckets: int = 1000
     max_historical_records: int = 10000
 
+    # --- Unified Traffic Operations Center (Phase 23) ---
+    operations_default_poll_interval_seconds: int = 5
+    operations_max_timeline_events: int = 50
+    operations_max_active_incidents: int = 50
+
+    @field_validator("operations_default_poll_interval_seconds")
+    @classmethod
+    def validate_operations_poll_interval(cls, v: int) -> int:
+        if v < 1 or v > 60:
+            raise ValueError(f"operations_default_poll_interval_seconds must be between 1 and 60, got {v}")
+        return v
+
+    @field_validator("operations_max_timeline_events")
+    @classmethod
+    def validate_operations_max_timeline_events(cls, v: int) -> int:
+        if v < 5 or v > 200:
+            raise ValueError(f"operations_max_timeline_events must be between 5 and 200, got {v}")
+        return v
+
+    @field_validator("operations_max_active_incidents")
+    @classmethod
+    def validate_operations_max_active_incidents(cls, v: int) -> int:
+        if v < 5 or v > 200:
+            raise ValueError(f"operations_max_active_incidents must be between 5 and 200, got {v}")
+        return v
+
     @field_validator("max_historical_range_days")
     @classmethod
     def validate_historical_range_days(cls, v: int) -> int:
