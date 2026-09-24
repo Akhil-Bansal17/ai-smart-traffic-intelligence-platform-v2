@@ -19,6 +19,7 @@ from app.api.v1 import (
     historical_analytics,
     insights,
     lane_analysis,
+    operations,
     predictions,
     reports,
     signal_optimization,
@@ -44,6 +45,7 @@ api_router.include_router(anomalies.router, prefix="/anomalies", tags=["anomalie
 api_router.include_router(insights.router, prefix="/insights", tags=["insights"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(historical_analytics.router, prefix="/historical-analytics", tags=["historical-analytics"])
+api_router.include_router(operations.router, prefix="/operations", tags=["operations"])
 
 
 
