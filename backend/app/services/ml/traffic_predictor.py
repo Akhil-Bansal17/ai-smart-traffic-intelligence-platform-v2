@@ -12,9 +12,19 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+try:
+    from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+    from sklearn.linear_model import Ridge
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+    SKLEARN_AVAILABLE = True
+except (ImportError, Exception):
+    HistGradientBoostingRegressor = None  # type: ignore
+    RandomForestRegressor = None  # type: ignore
+    Ridge = None  # type: ignore
+    mean_absolute_error = None  # type: ignore
+    mean_squared_error = None  # type: ignore
+    r2_score = None  # type: ignore
+    SKLEARN_AVAILABLE = False
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AppException
@@ -85,13 +95,13 @@ class TrafficPredictor:
     """
 
     SUPPORTED_MODELS = {
-        "RandomForestRegressor": lambda: RandomForestRegressor(
+        "RandomForestRegressor": (lambda: RandomForestRegressor(
             n_estimators=50, max_depth=6, min_samples_split=3, random_state=42
-        ),
-        "HistGradientBoostingRegressor": lambda: HistGradientBoostingRegressor(
+        )) if RandomForestRegressor is not None else (lambda: None),
+        "HistGradientBoostingRegressor": (lambda: HistGradientBoostingRegressor(
             max_iter=50, max_depth=4, random_state=42
-        ),
-        "RidgeRegression": lambda: Ridge(alpha=1.0, random_state=42),
+        )) if HistGradientBoostingRegressor is not None else (lambda: None),
+        "RidgeRegression": (lambda: Ridge(alpha=1.0, random_state=42)) if Ridge is not None else (lambda: None),
     }
 
     def __init__(
