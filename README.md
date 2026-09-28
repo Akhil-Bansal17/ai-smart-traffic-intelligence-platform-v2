@@ -33,12 +33,14 @@ The **AI Smart Traffic Intelligence Platform** is an end-to-end, edge-deployable
 | **Analysis Job Orchestration** | Non-blocking background worker pool (`ThreadPoolExecutor`), cooperative token cancellation across CV loops, honest frame progress tracking, idempotent deduplication, and crash recovery. |
 | **Production Packaging** | Multi-stage Docker containers for backend and frontend, Nginx reverse proxy with SPA routing, PostgreSQL 16 persistence, deep health probes (`/health`, `/readiness`), and automated GitHub Actions CI. |
 | **Unified Traffic Operations Center** | Integrated operational console (`/operations`) combining live camera feeds, 5-state health telemetry (`ONLINE`/`DEGRADED`/`OFFLINE`), active incident mitigation with operator audit notes, authoritative timeline, network traffic snapshot, and retrospective context drawer in a single coordinated sub-50ms query loop. |
+| **Network Traffic Intelligence** | Cross-source operations analytics (`/network-intelligence`) providing multi-source volume aggregation, source comparison with window mismatch detection, evidence-based hotspot intensity scoring ($0-100$), vehicle classification dominance, directional balance intelligence, and synchronized temporal cross-source analysis. |
 
 ---
 
 ## ⚡ What It Can Do Now
 
 - **Orchestrates unified real-time traffic operations** via the dedicated Operations Center (`/operations`), delivering a composite command console that coordinates live camera feeds, active incidents, operator status mutation (`acknowledged`/`resolved`), authoritative audit timeline, and retrospective historical context in a single 5s polling cycle with zero secondary analytics duplication.
+- **Analyzes cross-source network intelligence** via the dedicated Network Intelligence console (`/network-intelligence`), evaluating multi-source volume aggregation, source comparison with observation window mismatch detection, evidence-based hotspot intensity scoring ($0-100$), directional flow ratios, lane utilization, and synchronized temporal bucket analysis with strict provenance isolation.
 - **Processes video files asynchronously** without locking HTTP threads, reporting honest frame-by-frame progress percentages and processing FPS.
 - **Tracks individual vehicles across occlusions** using an 8-state Kalman filter and recovers lost IDs up to 15 frames after visual obstruction.
 - **Eliminates double-counting entirely** across virtual tripwire lines using 2D signed cross-product trajectory intersection tests combined with persistent track-ID sets.

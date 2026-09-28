@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 ## AI Smart Traffic Intelligence Platform
 
-Status: **Phases 1–21 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
+Status: **Phases 1–24 Complete & Verified**. This document is the source of truth for how the pieces fit together; update it whenever a real architectural decision changes.
 
 > **Decision Support Disclaimer:** *This system provides traffic signal optimization and emergency corridor simulation for decision support; it does not directly control physical traffic signals, emergency vehicles, or dispatch infrastructure.*
 
@@ -624,6 +624,51 @@ Live Monitoring (21)    Incident System (15)    Historical Analytics (22)
    - **Phase 11 ML Forecasting**: Minimum training sample barrier ($N \ge 20$) remains enforced; prediction is reported `UNAVAILABLE` ($N=10 < 20$).
    - **Phase 12/13 Simulations**: Signal Optimization and Emergency Corridor simulations remain decision-support only with explicit non-actuating disclaimers.
    - **Data Provenance**: Responses distinguish `REAL DATA`, `TEST FIXTURE`, `MIXED`, and `UNAVAILABLE`. Test fixtures carry prominent warning banners.
+
+---
+
+## 11. Advanced Traffic Operations Analytics & Network Intelligence (Phase 24)
+
+The Network Intelligence layer (`/network-intelligence`) provides bounded, evidence-based multi-source traffic intelligence across distributed cameras and road intersections. It operates strictly as an **analytics and orchestration layer** over authoritative persisted data models (`CameraSource`, `AnalysisSession`, `TrafficMetricsRecord`, `AnomalyEvent`, `LaneResultRecord`), reusing existing analytical services.
+
+```
+                     Network Intelligence Layer (Phase 24)
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        ▼                             ▼                             ▼
+Network Overview              Source Comparison             Hotspot Analysis
+(Volume, Rates, Lanes)        (Variance, Mismatch)          (Score 0-100, Evidence)
+        │                             │                             │
+        ├─────────────────────────────┼─────────────────────────────┤
+        ▼                             ▼                             ▼
+Vehicle Composition           Directional Analysis          Lane Intelligence
+(5 YOLO Classes, Heavy %)     (In/Out Ratio, Balance)       (Image-Space Heuristic)
+        │                             │                             │
+        └─────────────────────────────┼─────────────────────────────┘
+                                      ▼
+                        Temporal Cross-Source Timeline
+                        & Historical Comparison (Phase 22)
+```
+
+### Core Architecture & Invariants:
+1. **Zero Duplicate CV or Analytics**: `NetworkIntelligenceService` consumes previously computed and persisted metrics (`TrafficMetricsRecord`, `AnalysisSession`, `LaneResultRecord`). No secondary YOLO detectors, trackers, or metric calculation engines exist.
+2. **Epistemic Invariants & Provenance**: Every response includes an epistemic status label (`OBSERVED`, `DERIVED`, `EXTRAPOLATED`, `UNAVAILABLE`) and `HistoricalProvenanceSummary` isolating `REAL DATA`, `TEST FIXTURE`, and `MIXED` data tiers.
+3. **No Fabricated GPS or Route Causality**:
+   - Hotspots represent source-level concentrations derived from observed incident frequency, congestion anomaly events, and flow density. Physical geographic coordinates or pins are not assumed or fabricated when not provided in `CameraSource.location_name`.
+   - Synchronized temporal cross-source analysis explicitly discloses that no vehicle travel times, propagation speeds, or route causality are asserted without multi-camera tracking evidence.
+4. **Observation Window Mismatch Detection**: Comparing sources with significantly divergent observation durations (ratio $\ge 2.0$) automatically flags `window_mismatch_detected = True` with clear explanatory warnings.
+5. **Deterministic Hotspot Intensity Scoring**: Hotspots are ranked by a composite intensity score ($0.0 - 100.0$) combining incidents ($40\%$), congestion anomalies ($25\%$), traffic volume/rate ($20\%$), and lane density ($15\%$).
+6. **Strictly Supported Vehicle Classes**: Uses exactly the 5 YOLO classes supported in repository reality (`car`, `motorcycle`, `bus`, `truck`, `bicycle`), computing network dominant classes and heavy vehicle proportion (`truck` + `bus`).
+7. **Directional & Lane Intelligence**:
+   - Directional ratios ($\text{inbound} / \max(1, \text{outbound})$) classify balance as `inbound_dominant`, `outbound_dominant`, or `balanced`.
+   - Lane analytics reuse existing lane results with explicit uncalibrated image-space density heuristic disclosures and graceful `UNAVAILABLE` handling.
+8. **Bounded Query Ceilings**:
+   - `network_intelligence_max_sources`: 50 (range 1-500)
+   - `network_intelligence_max_range_days`: 90 (range 1-365)
+   - `network_intelligence_max_hotspots`: 20 (range 5-100)
+9. **REST API Surface**: 8 endpoints under `/api/v1/network-intelligence/*` (`/overview`, `/compare`, `/hotspots`, `/vehicle-composition`, `/directional-analysis`, `/lane-analysis`, `/temporal-analysis`, `/historical-comparison`).
+10. **Modern UI Console (`/network-intelligence`)**: Responsive dashboard featuring 6 KPI stat cards, provenance status banner, tabbed views, and cross-platform navigation drill-downs.
+
 
 
 
