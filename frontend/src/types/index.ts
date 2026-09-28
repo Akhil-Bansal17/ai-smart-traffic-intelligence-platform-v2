@@ -15,4 +15,5 @@ export * from './insight';
 export * from './report';
 export * from './historicalAnalytics';
 export * from './operations';
+export * from './networkIntelligence';
 
