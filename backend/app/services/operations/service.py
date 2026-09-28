@@ -418,14 +418,27 @@ class OperationsCenterService:
 
             if latest_session and latest_session.traffic_metrics:
                 tm: TrafficMetricsRecord = latest_session.traffic_metrics
-                tot_vol = tm.total_vehicles or latest_session.total_vehicles_counted
-                obs_duration = tm.duration_seconds or 0.0
+                tot_vol = getattr(tm, "total_volume", None) or getattr(tm, "total_vehicles", None) or latest_session.total_vehicles_counted or 0
+                obs_duration = getattr(tm, "observation_duration_seconds", None) or getattr(tm, "duration_seconds", None) or 0.0
                 flow_min = tm.flow_rate_per_minute or 0.0
                 flow_hr = tm.flow_rate_per_hour or 0.0
                 flow_tag = "EXTRAPOLATED" if obs_duration < 300.0 else "OBSERVED"
 
-                dir_split = {"inbound": tm.inbound_count, "outbound": tm.outbound_count}
-                dir_ratio = round(tm.inbound_count / tm.outbound_count, 2) if tm.outbound_count > 0 else None
+                in_cnt = getattr(tm, "inbound_count", None)
+                out_cnt = getattr(tm, "outbound_count", None)
+                if in_cnt is None and tm.direction_distribution and isinstance(tm.direction_distribution, list):
+                    in_cnt = sum(d.get("count", 0) for d in tm.direction_distribution if "in" in str(d.get("direction", "")).lower())
+                    out_cnt = sum(d.get("count", 0) for d in tm.direction_distribution if "out" in str(d.get("direction", "")).lower())
+                in_cnt = in_cnt or 0
+                out_cnt = out_cnt or 0
+                dir_split = {"inbound": in_cnt, "outbound": out_cnt}
+                dir_ratio = round(in_cnt / out_cnt, 2) if out_cnt > 0 else None
+
+                class_dist = (
+                    {item.get("class_name"): item.get("count", 0) for item in tm.class_distribution if isinstance(item, dict) and item.get("class_name")}
+                    if isinstance(tm.class_distribution, list)
+                    else (tm.class_distribution or {})
+                )
 
                 traffic_snapshot = OperationsTrafficSnapshot(
                     active_sources_count=0,
@@ -434,7 +447,7 @@ class OperationsCenterService:
                     flow_rate_per_minute=flow_min,
                     flow_rate_per_hour=flow_hr,
                     flow_rate_tag=flow_tag,
-                    class_distribution=tm.class_distribution or {},
+                    class_distribution=class_dist,
                     directional_split=dir_split,
                     directional_ratio=dir_ratio,
                     active_incidents_count=active_incidents_count,
