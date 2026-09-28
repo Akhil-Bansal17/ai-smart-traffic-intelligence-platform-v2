@@ -119,6 +119,33 @@ class Settings(BaseSettings):
     operations_max_timeline_events: int = 50
     operations_max_active_incidents: int = 50
 
+    # --- Advanced Traffic Operations Analytics & Network Intelligence (Phase 24) ---
+    network_intelligence_max_sources: int = 50
+    network_intelligence_max_range_days: int = 90
+    network_intelligence_default_time_window: str = "7d"
+    network_intelligence_max_hotspots: int = 20
+
+    @field_validator("network_intelligence_max_sources")
+    @classmethod
+    def validate_network_intelligence_max_sources(cls, v: int) -> int:
+        if v < 1 or v > 100:
+            raise ValueError(f"network_intelligence_max_sources must be between 1 and 100, got {v}")
+        return v
+
+    @field_validator("network_intelligence_max_range_days")
+    @classmethod
+    def validate_network_intelligence_max_range_days(cls, v: int) -> int:
+        if v < 1 or v > 365:
+            raise ValueError(f"network_intelligence_max_range_days must be between 1 and 365, got {v}")
+        return v
+
+    @field_validator("network_intelligence_max_hotspots")
+    @classmethod
+    def validate_network_intelligence_max_hotspots(cls, v: int) -> int:
+        if v < 1 or v > 50:
+            raise ValueError(f"network_intelligence_max_hotspots must be between 1 and 50, got {v}")
+        return v
+
     @field_validator("operations_default_poll_interval_seconds")
     @classmethod
     def validate_operations_poll_interval(cls, v: int) -> int:
